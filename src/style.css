@@ -1,9 +1,8 @@
-html, body {
+html, body, #react-root {
     background-color: #0c0c0c;
     font-family: monospace;
     font-size: 12pt;
     color: #ddd;
-    width: 100%;
     height: 100%;
     margin: 0;
 }
@@ -20,12 +19,25 @@ main {
     flex-direction: column;
     align-items: center;
     margin: .5em 0 0 0;
-    transition: background-color .15s;
+    transition: background-color .15s, height .25s, width .25s;
+    /* min-width: max-content; */
+    flex: 0 0 auto;
+    /* justify-self: center; */
+    /* outline: 1px solid #3c3c3c; */
 }
 
 .children {
-    display: flex;
-    flex-direction: row;
+    /* display: flex; */
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    grid-gap: 3em;
+    /* align-items: stretch; */
+    /* width: 100%; */
+    /* justify-content: center; */
+    /* width: 0px; */
+    /* transition: width .25s; */
+    justify-items: center;
     border-top: 1px solid #ddd;
 }
 
@@ -34,15 +46,12 @@ main {
     /* background-color:  #f00; */
 }
 
-.children > .tableau:first-child {
-    margin-right: 3em;
-}
-
 .formula {
     margin: 0;
     padding: .5em;
     user-select: none;
     transition: background-color .15s, outline-color .15s;
+    width: max-content;
     outline-color: #0c0c0c;
 }
 
@@ -51,7 +60,7 @@ main {
 }
 
 .selected {
-   outline: .2em solid #4c4c4c
+   outline: 2px solid #2c2c2c
 }
 
 .selectable {

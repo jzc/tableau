@@ -57,31 +57,11 @@ function top(): ConstantFormula {
   return {tag: "top"}
 }
 
-function toString(f: Formula): string {
-  switch (f.tag) {
-    case "var":
-      return f.name;
-    case "not":
-      return `\\neg(${toString(f.arg)})`;
-    case "and":
-      return `(${toString(f.left)} \\land ${toString(f.right)})`;
-    case "or":
-      return `(${toString(f.left)} \\lor ${toString(f.right)})`;
-    case "implies":
-      return `(${toString(f.left)} \\implies ${toString(f.right)})`
-    case "bot":
-      return "\\bot";
-    case "top":
-      return "\\top";
-  }
-}
-
 function parenthesize(
   left: string, parenthesizeLeft: boolean,
   op: string,
   right: string, parenthesizeRight: boolean
-) : string
-{
+) : string {
   left =
     parenthesizeLeft ?
     `(${left})` :
@@ -108,6 +88,7 @@ function prettyString(f : Formula) : string {
 	case "var":
 	case "bot":
 	case "top":
+	case "not":
 	  return `\\neg ${prettyString(f.arg)}`;
 	default:
 	  return `\\neg(${prettyString(f.arg)})`;
@@ -246,7 +227,7 @@ type ArrayIndex = number;
 type TableauIndex = string;
 type FormulaIndex = [TableauIndex, ArrayIndex];
 
-function eqIdx(idx1: FormulaIndex, idx2: FormulaIndex) {
+function eqIdx(idx1: FormulaIndex, idx2: FormulaIndex): boolean {
   return idx1[0] == idx2[0] && idx1[1] == idx2[1];
 }
 
@@ -390,25 +371,6 @@ class Tableau {
     })
   }
 
-  // leafTableaus(initialIdx = "") : [Tableau, TableauIndex][] {
-  //   function recurse(t: Tableau, currIdx: TableauIndex)
-  //   : [Tableau, TableauIndex][] {
-  //     if (t.subTableaus === undefined) {
-  // 	return [[t, currIdx]]
-  //     } else {
-  // 	return recurse(t.subTableaus.left, currIdx+"L")
-  // 	  .concat(recurse(t.subTableaus.right, currIdx+"R"))
-  //     }
-  //   }
-  //   return recurse(this.tableauAt(initialIdx), initialIdx);
-  //   if (t.subTableaus === undefined) {
-  //     return [[t, currIdx]]
-  //   } else {
-  //     return recurse(t.subTableaus.left, currIdx+"L")
-  // 	.concat(recurse(t.subTableaus.right, currIdx+"R"))
-  //   }
-  // }
-
   getApplicableBranches(idx: FormulaIndex) : [Tableau, TableauIndex][] {
     return this.leafTableaus.filter(
       ([tableau, tableauIdx]) =>
@@ -419,12 +381,6 @@ class Tableau {
 
   isFormulaFullyApplied(idx: FormulaIndex) : boolean {
     return this.getApplicableBranches(idx).length === 0;
-    // return this.leafTableaus.every(
-    //   ([leaf, _]) =>
-    // 	leaf.appliedFormulae.some(
-    // 	  idxp => eqIdx(idx, idxp)
-    // 	)
-    // );
   }
 
   isLeaf() : boolean {
@@ -437,21 +393,56 @@ interface TableauProps {
   formulaProps: (idx: FormulaIndex) => DOMElementProps,
   tableauProps: (idx: TableauIndex) => DOMElementProps,
   currTableauIndex?: TableauIndex,
+  tableauDivRef?: any,
+  tableauWidthRef?: any,
 }
 
 function BaseTableauComponent(props: TableauProps) : null | React.ReactElement {
   let { tableau,
 	formulaProps,
 	tableauProps,
-	currTableauIndex } = props;
+	currTableauIndex,
+	tableauDivRef, } = props;
+  
+  let leftTableauRef = React.useRef<any>(null);
+  let rightTableauRef = React.useRef<any>(null);
+  let childrenRef = React.useRef<any>(null);
+  // React.useEffect(() => {
+  //   if (tableauDivRef !== undefined) {
+  //     console.log(currTableauIndex);
+  //     let d = tableauDivRef.current;
+  //     let m = Math.max(...[...d.children].map((x:any) => x.clientWidth));
+  //     console.log(m);
+  //     console.log("before:", d.scrollWidth);
+  //     d.style.width = `${m}px`;
+  //     console.log("after:", d.scrollWidth);
+  //   } else if (tableau.subTableaus !== undefined) {
+  //     let c = childrenRef.current;
+  //     let l = leftTableauRef.current;
+  //     let r = rightTableauRef.current;
+  //     let lw = window.getComputedStyle(l).width;
+  //     let rw = window.getComputedStyle(r).width;
+  //     console.log(l, lw, r, rw);
+  //     let m = Math.max(l.clientWidth, r.clientWidth);
+  //     c.style.gridAutoColumns = `${m}px`;
+  //   }
+    
+  //   // if (tableau.subTableaus === undefined) {return;}
+  //     // childrenRef.scrollWidth = `${l.scrollWid
 
+  // });
+  
+  
+
+  
   // https://github.com/microsoft/TypeScript/issues/33319
   let currTableauIndexP =
     currTableauIndex === undefined ? "" : currTableauIndex;
   
   if (!tableau) {
     return null;
-   } else {
+  } else {
+    // construct the formula components
     let children = tableau.formulaData.map(
       (datum, arrayIdx) => {
 	let idx: FormulaIndex = [currTableauIndexP, arrayIdx];
@@ -461,40 +452,73 @@ function BaseTableauComponent(props: TableauProps) : null | React.ReactElement {
 	  ...extraProps,
 	  key: arrayIdx
 	};
-	// if (extraProps.classes !== undefined) {
-	//   props.classes.push(...extraProps.classes);
-	// }
-	// if (tableau.isFormulaFullyApplied(idx)) {
-	//   props.classes.push("fully-applied");
-	// }
 	return e(FormulaComponent, props);
       }
     );
+
+    // construct subtableau components
     let subTableaus = null;
     if (tableau.subTableaus) {
       subTableaus =
-	e("div", {className: "children"},
+	// e("div", {className: "childrenBox"},
+	e("div", {
+	  className: "children",
+	  ref: childrenRef
+	},
 	  e(BaseTableauComponent, {
 	    tableau: tableau.subTableaus.left,
 	    formulaProps: formulaProps,
 	    tableauProps: tableauProps,
 	    currTableauIndex:  currTableauIndexP + "L",
+	    tableauDivRef: leftTableauRef,
 	  }),
 	  e(BaseTableauComponent, {
 	    tableau: tableau.subTableaus.right,
 	    formulaProps: formulaProps,
 	    tableauProps: tableauProps,
 	    currTableauIndex: currTableauIndexP + "R",
+	    tableauDivRef: rightTableauRef,
 	  }));
     }
+
+    // construct the actual tableau
+    // if (!tableauDivRef) { throw "err"; }
+    
     let props = tableauProps(currTableauIndexP);
-    if (props.classes === undefined) {
-      props.classes = [];
-    }
     props.classes.push("tableau");
-    return e("div", {className: props.classes.join(" "), ...props.attributes},
-	     children,
-	     subTableaus);
+    return e("div", {
+      className: props.classes.join(" "), ...props.attributes,
+      ref: (el:any) => {
+	if (el) {
+	  let ws = [...el.children].map(
+	    x => {
+	      if ([...x.classList].includes("children")) {
+		let rowGap =  window.getComputedStyle(x).rowGap;
+		let leftWidth = x.children[0].dataset.calculatedWidth;
+		let rightWidth = x.children[1].dataset.calculatedWidth;
+		console.log(rowGap, leftWidth, rightWidth);
+		return Number(rowGap.slice(0,-2)) + Number(leftWidth) + Number(rightWidth);
+	      } else {
+		return x.clientWidth;
+	      }
+	    }
+	  );
+	  console.log(ws, el.scrollWidth, el.clientWidth);
+	  let m = Math.max(...ws, el.scrollWidth, el.clientWidth);
+	  el.dataset.calculatedWidth = m;
+	  console.log(el, el.scrollWidth, el.clientWidth, m);
+	  el.style.width = `${m}px`;
+	  el.style.height = `${el.scrollHeight}px`;
+	}
+      }
+      // tableauDivRef,
+      // // (e:any) => {
+      // // 	if (e) {
+      // // 	  e.style.height = `${e.scrollHeight}px`;
+      // // 	  // e.style.width = `${e.scrollWidth+1}px`;
+      // // 	}
+      // // }
+    }, children, subTableaus);
   }
 }
 
@@ -557,6 +581,43 @@ let nTransitivity = not(implies(implies(v("p"), v("q")),
 				implies(implies(v("q"), v("r")),
 					implies(v("p"), v("r")))));
 
+function randomFormula(n : number, d : number) : Formula {
+  if (d === 0) {
+    let r = Math.floor(Math.random()*(n+2));
+    if (r === 0) {
+      return bot();
+    } else if (r === 1) {
+      return top();
+    } else {
+      return v(`p_${r-2}`);
+    }
+  } else {
+    let r = Math.floor(Math.random()*4);
+    switch (r) {
+      case 0:
+	return and(randomFormula(n, d-1),
+		   randomFormula(n, d-1));
+      case 1:
+	return or(randomFormula(n, d-1),
+		   randomFormula(n, d-1));
+      case 2:
+	return implies(randomFormula(n, d-1),
+		       randomFormula(n, d-1));
+      case 3:
+	return not(randomFormula(n, d-1));
+      default:
+	throw "err";
+    }
+  }
+}
+
+let neg = not(not(not(not(v("p_1")))));
+let p = v("p");
+// let test = randomFormula(5, 4);
+let test = or(p, p);
+test = or(test, test);
+test = and(test, test);
+test = or(test, test);
 
 interface AppState {
   tableau: Tableau
@@ -567,7 +628,7 @@ interface AppState {
 class App extends React.Component<{}, AppState> {
   constructor(props: {}) {
     super(props);
-    let t = new Tableau([{formula: nTransitivity}], []);
+    let t = new Tableau([{formula: test}], []);
     // t.formulaDatum.push({formula: nTransitivity, selected: false});
     this.state = {
       tableau: t,
@@ -608,6 +669,10 @@ class App extends React.Component<{}, AppState> {
 
   transitionToSelecting = (selectedIdx: FormulaIndex) => {
     this.setState({state: {tag: "selecting", selectedIdx: selectedIdx}});
+  }
+
+  transitionToReducing = () => {
+    this.setState({state: {tag: "reducing"}});
   }
 
   renderTableauReducing() {
@@ -660,7 +725,10 @@ class App extends React.Component<{}, AppState> {
 	  return {
 	    classes: ["selectable"],
 	    attributes: {
-	      onClick: _ => this.reduceFormula(selectedIdx, tableauIdx),
+	      onClick: e => {
+		this.reduceFormula(selectedIdx, tableauIdx);
+		e.stopPropagation();
+	      },
 	    }
 	  }
 	} else {
@@ -685,14 +753,23 @@ class App extends React.Component<{}, AppState> {
   }
   
   render() {
-    return this.renderTableau();
+    let props: HTMLAttributes = {}
+    if (this.state.state.tag === "selecting" ||
+      this.state.state.tag === "closing") {
+      props.onClick = _ => {
+	this.transitionToReducing();
+	console.log("hi");
+      }
+    }
+    return e("main", props, this.renderTableau());
   }
 }
 
-const main = document.createElement("main");
-document.body.appendChild(main);
+const reactRoot = document.createElement("div");
+reactRoot.id = "react-root";
+document.body.appendChild(reactRoot);
 
 ReactDOM.render(
   e(App),
-  main
-);
+  reactRoot,
+)
