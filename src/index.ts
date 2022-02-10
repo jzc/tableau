@@ -4,198 +4,12 @@ import { createElement as e } from "react";
 import * as katex from "katex";
 import "./style.css";
 import "katex/dist/katex.min.css";
-
-interface VariableFormula {
-  tag: "var",
-  name: string
-}
-
-interface UnaryFormula {
-  tag: "not",
-  arg: Formula
-}
-
-interface BinaryFormula {
-  tag: "and" | "or" | "implies"
-  left: Formula,
-  right: Formula,
-}
-
-interface ConstantFormula {
-  tag: "bot" | "top"
-}
-
-type Formula =
-  VariableFormula | UnaryFormula
-  | BinaryFormula | ConstantFormula;
-
-function v(name: string): VariableFormula {
-  return {tag: "var", name: name}
-}
-
-function not(arg: Formula) : UnaryFormula {
-  return {tag: "not", arg: arg}
-}
-
-function and(left: Formula, right: Formula): BinaryFormula {
-  return {tag: "and", left: left, right: right}
-}
-
-function or(left: Formula, right: Formula): BinaryFormula {
-  return {tag: "or", left: left, right: right}
-}
-
-function implies(left: Formula, right: Formula): BinaryFormula {
-  return {tag: "implies", left: left, right: right}
-}
-
-function bot(): ConstantFormula {
-  return {tag: "bot"}
-}
-
-function top(): ConstantFormula {
-  return {tag: "top"}
-}
-
-function parenthesize(
-  left: string, parenthesizeLeft: boolean,
-  op: string,
-  right: string, parenthesizeRight: boolean
-) : string {
-  left =
-    parenthesizeLeft ?
-    `(${left})` :
-    left;
-  right =
-    parenthesizeRight ?
-    `(${right})` :
-    right;
-  return `${left} ${op} ${right}`;
-}
-
-function prettyString(f : Formula) : string {
-  let parenthesizeLeft : boolean;
-  let parenthesizeRight: boolean;
-  switch (f.tag) {
-    case "var":
-      return f.name;
-    case "bot":
-      return "\\bot";
-    case "top":
-      return "\\top";
-    case "not":
-      switch (f.arg.tag) {
-	case "var":
-	case "bot":
-	case "top":
-	case "not":
-	  return `\\neg ${prettyString(f.arg)}`;
-	default:
-	  return `\\neg(${prettyString(f.arg)})`;
-      }
-    case "implies":
-      return parenthesize(
-	prettyString(f.left), f.left.tag === "implies",
-	"\\implies",
-	prettyString(f.right), false
-      );
-    case "and":
-      switch(f.left.tag) {
-	case "or":
-	case "implies":
-	  parenthesizeLeft = true;
-	  break;
-	default:
-	  parenthesizeLeft = false;
-	  break;
-      }
-      switch(f.right.tag) {
-	case "and":
-	case "or":
-	case "implies":
-	  parenthesizeRight = true;
-	  break;
-	default:
-	  parenthesizeRight = false;
-	  break;
-      }
-      return parenthesize(
-	prettyString(f.left), parenthesizeLeft,
-	"\\land",
-	prettyString(f.right), parenthesizeRight,
-      )
-    case "or":
-      switch(f.left.tag) {
-	case "and":
-	case "implies":
-	  parenthesizeLeft = true;
-	  break;
-	default:
-	  parenthesizeLeft = false;
-	  break;
-      }
-      switch(f.right.tag) {
-	case "and":
-	case "or":
-	case "implies":
-	  parenthesizeRight = true;
-	  break;
-	default:
-	  parenthesizeRight = false;
-	  break;
-      }
-      return parenthesize(
-	prettyString(f.left), parenthesizeLeft,
-	"\\lor",
-	prettyString(f.right), parenthesizeRight,
-      )
-  }
-}
-
-function reducible(f : Formula) : boolean {
-  switch (f.tag) {
-    case "var":
-    case "bot":
-    case "top":
-      return false;
-    case "not":
-      return f.arg.tag !== "var"
-    default:
-      return true;
-  }
-}
-
-function reduce(f: Formula) : {conjuncts: Formula[]} | {disjuncts: Formula[]} {
-  switch (f.tag) {
-    case "var":
-    case "bot":
-    case "top":
-      throw "formula is not reducible";
-    case "and":
-      return {conjuncts: [f.left, f.right]}
-    case "or":
-      return {disjuncts: [f.left, f.right]}
-    case "implies":
-      return {disjuncts: [not(f.left), f.right]}
-    case "not":
-      switch (f.arg.tag) {
-	case "var":
-	  throw "formula is not reducible";
-	case "not":
-	  return {conjuncts: [f.arg.arg]};
-	case "and":
-	  return {disjuncts: [not(f.arg.left), not(f.arg.right)]};
-	case "or":
-	  return {conjuncts: [not(f.arg.left), not(f.arg.right)]};
-	case "implies":
-	  return {conjuncts: [f.arg.left, not(f.arg.right)]};
-	case "bot":
-	  return {conjuncts: [top()]};
-	case "top":
-	  return {conjuncts: [bot()]};	
-      }
-  }
-}
+// import  "./Formula.ts";
+import {
+  Formula, v, bot, top, and, or, implies, not,
+  prettyString, reduce, reducible, randomFormula,
+  isContradictionPair,
+} from "./Formula"
 
 type HTMLAttributes = React.HTMLAttributes<unknown>;
 
@@ -204,8 +18,10 @@ interface DOMElementProps {
   attributes: HTMLAttributes,
 }
 
+
 interface FormulaProps extends DOMElementProps {
   formula: Formula,
+  sizeObj?: {width: number, height: number},
 }
 
 function FormulaComponent(props: FormulaProps) {
@@ -216,6 +32,15 @@ function FormulaComponent(props: FormulaProps) {
 	katex.render(prettyString(props.formula), el, {
 	  output: "html",
 	})
+	let fontSizeStr = window.getComputedStyle(el).fontSize;
+	// let fontSize = Number(fontSizeStr.slice(0, -2));
+	let rect = el.getBoundingClientRect();
+	let wPx = rect.width;
+	let hPx = rect.height;
+	if (props.sizeObj !== undefined) {
+	  props.sizeObj.width = wPx // /fontSize;
+	  props.sizeObj.height = hPx // /fontSize;
+	}
       }
     },
     className: props.classes.join(" "),
@@ -228,7 +53,7 @@ type TableauIndex = string;
 type FormulaIndex = [TableauIndex, ArrayIndex];
 
 function eqIdx(idx1: FormulaIndex, idx2: FormulaIndex): boolean {
-  return idx1[0] == idx2[0] && idx1[1] == idx2[1];
+  return idx1[0] === idx2[0] && idx1[1] === idx2[1];
 }
 
 interface FormulaDatum {
@@ -237,18 +62,21 @@ interface FormulaDatum {
 
 class Tableau {
   readonly formulaData: readonly FormulaDatum[] = [];
-  readonly appliedFormulae: readonly FormulaIndex[] = [];
+  private readonly appliedFormulae: readonly FormulaIndex[] = [];
   readonly subTableaus?: {readonly left: Tableau, readonly right: Tableau};
-  readonly leafTableaus: [Tableau, TableauIndex][];  
-
-  constructor(
+  private readonly leafTableaus: [Tableau, TableauIndex][];
+  readonly isClosed: boolean;
+  
+  private constructor(
     formulaData: readonly FormulaDatum[],
     appliedFormulae : readonly FormulaIndex[],
+    isClosed: boolean,
     subTableaus?: {readonly left: Tableau, readonly right: Tableau}
   ) {
     this.formulaData = formulaData;
     this.appliedFormulae = appliedFormulae;
     this.subTableaus = subTableaus;
+    this.isClosed = isClosed;
 
     if (this.subTableaus === undefined) {
       this.leafTableaus = [[this, ""]]
@@ -261,6 +89,10 @@ class Tableau {
       )
       this.leafTableaus = left.concat(right);
     }
+  }
+
+  static initialTableau(f: Formula) {
+    return new Tableau([{formula: f}], [], false);
   }
 
   tableauAt(tableauIndex: TableauIndex) : Tableau {
@@ -282,7 +114,7 @@ class Tableau {
     return this.tableauAt(tableauIndex).formulaData[arrayIndex];
   }
 
-  updateTableau(
+  private updateTableau(
     tableauIndex: TableauIndex,
     updater: (tableau: Tableau) => Tableau,
   ) : Tableau {
@@ -294,6 +126,7 @@ class Tableau {
 	return new Tableau(
 	  this.formulaData,
 	  this.appliedFormulae,
+	  this.isClosed,
 	  {
 	    left: this.subTableaus.left.updateTableau(
 	      tableauIndex.slice(1), updater
@@ -305,6 +138,7 @@ class Tableau {
 	return new Tableau(
 	  this.formulaData,
 	  this.appliedFormulae,
+	  this.isClosed,
 	  {
 	    left: this.subTableaus.left,
 	    right: this.subTableaus.right.updateTableau(
@@ -316,7 +150,7 @@ class Tableau {
 	throw "invalid tableau index";
       }
     }
-  }    
+  }
 
   reduceFormula(formulaIdx: FormulaIndex, tableauIdx: TableauIndex) : Tableau  {
     let formulaDatum = this.formulaAt(formulaIdx);
@@ -345,6 +179,7 @@ class Tableau {
 	return new Tableau(
 	  newFormulaData,
 	  newAppliedFormulae,
+	  tableau.isClosed,
 	  tableau.subTableaus
 	);
       } else {
@@ -356,16 +191,18 @@ class Tableau {
 	let newSubTableaus = reductionResult.disjuncts.map(
 	  f => new Tableau(
 	    [{formula: f}],
-	    [...tableau.appliedFormulae, formulaIdx]	    
+	    [...tableau.appliedFormulae, formulaIdx],
+	    tableau.isClosed,
 	  )
 	);
 	return new Tableau(
 	  tableau.formulaData,
 	  tableau.appliedFormulae,
+	  tableau.isClosed,
 	  {
 	    left: newSubTableaus[0],
 	    right: newSubTableaus[1],
-	  }
+	  }	  
 	);
       }      
     })
@@ -374,6 +211,7 @@ class Tableau {
   getApplicableBranches(idx: FormulaIndex) : [Tableau, TableauIndex][] {
     return this.leafTableaus.filter(
       ([tableau, tableauIdx]) =>
+	!tableau.isClosed &&
 	tableauIdx.startsWith(idx[0]) && 
 	!tableau.appliedFormulae.some(idxp => eqIdx(idx, idxp))
     );
@@ -383,385 +221,428 @@ class Tableau {
     return this.getApplicableBranches(idx).length === 0;
   }
 
+  getDescendants(idx: TableauIndex) : TableauIndex[] {
+    function recurse(t: Tableau, currIdx : TableauIndex) : TableauIndex[] {
+      let x = [];
+      if (t.subTableaus !== undefined) {
+	let idxL = currIdx + "L";
+	let idxR = currIdx + "R";
+	x.push(idxL, ...recurse(t.subTableaus.left, idxL));
+	x.push(idxR, ...recurse(t.subTableaus.right, idxR));
+      }
+      return x;
+    }
+    return recurse(this.tableauAt(idx), idx);
+  }
+
+  getAncestors(idx: TableauIndex) : TableauIndex[] {
+    let x = [];
+    for (let i = 0; i < idx.length-1; i++) {
+      x.push(idx.slice(0, i));
+    }
+    return x;
+  }
+
   isLeaf() : boolean {
     return this.subTableaus === undefined;
   }
+
+  closeBranchWithBot(formulaIdx: FormulaIndex) : Tableau {
+    let f = this.formulaAt(formulaIdx).formula;
+    if (f.tag !== "bot") { throw "formula not bot"; }
+    return this.closeBranch(formulaIdx[0]);
+  }
+
+  closeBranchWithContradiction(fIdx1: FormulaIndex, fIdx2: FormulaIndex) : Tableau {
+    if (fIdx2[0].startsWith(fIdx1[0])) {
+      // swap so fIdx2 so fIdx1[0].startsWith(fIdx2[0]) is true
+      // after the if-then-else
+      let temp = fIdx1;
+      fIdx1 = fIdx2;
+      fIdx2 = temp;
+    } else if (!fIdx1[0].startsWith(fIdx2[0])) {
+      throw "indicies are not within same branch";
+    }
+    let f1 = this.formulaAt(fIdx1).formula;
+    let f2 = this.formulaAt(fIdx2).formula;
+    if (!isContradictionPair(f1, f2)) { throw "not a contradiction"; }
+    return this.closeBranch(fIdx2[0]);
+  }
+
+  private closeBranch(tableauIndex: TableauIndex) : Tableau {
+    // let t = this.tableauAt(tableauIndex);
+    // if (t.isLeaf()) {
+    let thisp = this.updateTableau(tableauIndex, tableau => {
+      if (tableau.subTableaus === undefined) {
+	return new Tableau(tableau.formulaData,
+			   tableau.appliedFormulae,
+			   true);
+      } else {
+	let left = tableau.subTableaus.left;
+	if (!left.isClosed) {
+	  left = left.closeBranch("");
+	}
+	let right = tableau.subTableaus.right;
+	if (!right.isClosed) {
+	  right = right.closeBranch("");
+	}
+	return new Tableau(tableau.formulaData,
+			   tableau.appliedFormulae,
+			   true,
+			   {left: left, right: right});
+      }
+    });
+
+    let x =
+      Array(tableauIndex.length)
+	.fill(0)
+	.map((_, i) => tableauIndex.slice(0,i))
+	.reverse();
+    for (let idx of x) {
+      let t = thisp.tableauAt(idx);
+      let left = (t.subTableaus as any).left as Tableau;
+      let right = (t.subTableaus as any).right as Tableau;
+      if (!(left.isClosed && right.isClosed)) {
+	break;
+      } else {
+	thisp = thisp.updateTableau(
+	  idx,
+	  _ => new Tableau(
+	    t.formulaData,
+	    t.appliedFormulae,
+	    true,
+	    {left: left, right: right})
+	);
+      }
+    }
+    return thisp;
+  }  
 }
 
-interface TableauProps {
+type IndexedFormulaProps =
+  (tableau: Tableau,
+   formula: Formula,
+   idx: FormulaIndex) => DOMElementProps;
+
+type IndexedTableauProps =
+  (tableau: Tableau,
+   idx: TableauIndex) => DOMElementProps;
+
+interface BaseTableauProps {
   tableau: Tableau,
-  formulaProps: (idx: FormulaIndex) => DOMElementProps,
-  tableauProps: (idx: TableauIndex) => DOMElementProps,
+  indexedFormulaProps: IndexedFormulaProps,
+  indexedTableauProps: IndexedTableauProps,
   currTableauIndex?: TableauIndex,
-  tableauDivRef?: any,
-  tableauWidthRef?: any,
+  sizeObj?: {width: number, height: number},
 }
 
-function BaseTableauComponent(props: TableauProps) : null | React.ReactElement {
+function BaseTableauComponent(props: BaseTableauProps) : null | React.ReactElement {
   let { tableau,
-	formulaProps,
-	tableauProps,
-	currTableauIndex,
-	tableauDivRef, } = props;
+	indexedFormulaProps,
+	indexedTableauProps,
+	currTableauIndex, } = props;
+  currTableauIndex ??= "";
   
-  let leftTableauRef = React.useRef<any>(null);
-  let rightTableauRef = React.useRef<any>(null);
-  let childrenRef = React.useRef<any>(null);
-  // React.useEffect(() => {
-  //   if (tableauDivRef !== undefined) {
-  //     console.log(currTableauIndex);
-  //     let d = tableauDivRef.current;
-  //     let m = Math.max(...[...d.children].map((x:any) => x.clientWidth));
-  //     console.log(m);
-  //     console.log("before:", d.scrollWidth);
-  //     d.style.width = `${m}px`;
-  //     console.log("after:", d.scrollWidth);
-  //   } else if (tableau.subTableaus !== undefined) {
-  //     let c = childrenRef.current;
-  //     let l = leftTableauRef.current;
-  //     let r = rightTableauRef.current;
-  //     let lw = window.getComputedStyle(l).width;
-  //     let rw = window.getComputedStyle(r).width;
-  //     console.log(l, lw, r, rw);
-  //     let m = Math.max(l.clientWidth, r.clientWidth);
-  //     c.style.gridAutoColumns = `${m}px`;
-  //   }
-    
-  //   // if (tableau.subTableaus === undefined) {return;}
-  //     // childrenRef.scrollWidth = `${l.scrollWid
+  let formulaeSizesRef = React.useRef([] as {width: number, height: number}[]);
+  let leftSizeRef = React.useRef({width: 0, height: 0});
+  let rightSizeRef = React.useRef({width: 0, height: 0});
+  let childrenDivRef = React.useRef<HTMLElement>(null);
+  let tableauDivRef = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    let childrenSize = {
+      width: 0,
+      height: Math.max(leftSizeRef.current.height,
+		       rightSizeRef.current.height)
+    }
+    if (childrenDivRef.current !== null) {
+      let style = getComputedStyle(childrenDivRef.current);
+      // let fontSize = Number(style.fontSize.slice(0, -2));
+      // let rowGap = Number(style.rowGap.slice(0, -2));
+      let rowGap = 48;
+      // let m = Math.max(leftSizeRef.current.width, rightSizeRef.current.width);
+      childrenSize.width =
+	rowGap // rowGap + 2 * m
+	+ leftSizeRef.current.width
+	+ rightSizeRef.current.width;
+    } 
+    let tableauWidth =
+      Math.max(
+	childrenSize.width,
+	...formulaeSizesRef.current.map(({width})=>width)
+      );
+    let tableauHeight =
+      [childrenSize.height,
+       ...formulaeSizesRef.current.map(({height})=>height)]
+	.reduce((x,y)=>x+y);
 
-  // });
-  
-  
+    // Propogate the size of the tableau we rendered up
+    if (props.sizeObj !== undefined) {
+      props.sizeObj.width = tableauWidth;
+      props.sizeObj.height = tableauHeight;
+    }
 
+    // Set the styles
+    if (tableauDivRef.current !== null) {
+      let el = tableauDivRef.current;
+      el.style.width = `${tableauWidth}px`;
+      el.style.height = `${tableauHeight}px`;
+    }
+    if (childrenDivRef.current !== null) {
+      childrenDivRef.current.classList.remove("hidden");
+    }
+  });
   
-  // https://github.com/microsoft/TypeScript/issues/33319
-  let currTableauIndexP =
-    currTableauIndex === undefined ? "" : currTableauIndex;
+  
   
   if (!tableau) {
     return null;
   } else {
     // construct the formula components
+    formulaeSizesRef.current = [];
+    leftSizeRef.current = {width: 0, height: 0};
+    rightSizeRef.current = {width: 0, height: 0};
+    
     let children = tableau.formulaData.map(
       (datum, arrayIdx) => {
-	let idx: FormulaIndex = [currTableauIndexP, arrayIdx];
-	let extraProps = formulaProps(idx);
-	let props : FormulaProps & {key: number} = {
+	// currTableauIndex shouldn't be undefined as we checked
+	// earlier and updated its value accordingly, but the type
+	// checker seems to be weird when we capture currTableauIndex
+	// inside an arrow function, so we need the type assertion
+	// (the other uses of currTableauIndex later in the function
+	// type check fine because they are not within an arrow function...)
+	// https://github.com/microsoft/TypeScript/issues/33319
+	let sizeObj = {width: 0, height: 0}
+	formulaeSizesRef.current.push(sizeObj);
+	let idx: FormulaIndex = [(currTableauIndex as TableauIndex), arrayIdx];
+	return e(FormulaComponent, {
 	  formula: datum.formula,
-	  ...extraProps,
+	  ...indexedFormulaProps(tableau, datum.formula, idx),
+	  sizeObj: sizeObj,
 	  key: arrayIdx
-	};
-	return e(FormulaComponent, props);
+	});
       }
     );
 
     // construct subtableau components
-    let subTableaus = null;
+    let last = null;
     if (tableau.subTableaus) {
-      subTableaus =
+      last =
 	// e("div", {className: "childrenBox"},
 	e("div", {
-	  className: "children",
-	  ref: childrenRef
+	  className: "children hidden",
+	  ref: childrenDivRef,
 	},
 	  e(BaseTableauComponent, {
 	    tableau: tableau.subTableaus.left,
-	    formulaProps: formulaProps,
-	    tableauProps: tableauProps,
-	    currTableauIndex:  currTableauIndexP + "L",
-	    tableauDivRef: leftTableauRef,
+	    indexedFormulaProps: indexedFormulaProps,
+	    indexedTableauProps: indexedTableauProps,
+	    currTableauIndex:  currTableauIndex + "L",
+	    sizeObj: leftSizeRef.current,
 	  }),
 	  e(BaseTableauComponent, {
 	    tableau: tableau.subTableaus.right,
-	    formulaProps: formulaProps,
-	    tableauProps: tableauProps,
-	    currTableauIndex: currTableauIndexP + "R",
-	    tableauDivRef: rightTableauRef,
+	    indexedFormulaProps: indexedFormulaProps,
+	    indexedTableauProps: indexedTableauProps,
+	    currTableauIndex: currTableauIndex + "R",
+	    sizeObj: rightSizeRef.current,
 	  }));
+    } else if (tableau.isClosed) {
+      last = e("p", {}, "X");
     }
 
-    // construct the actual tableau
-    // if (!tableauDivRef) { throw "err"; }
-    
-    let props = tableauProps(currTableauIndexP);
+    // construct the actual tableau    
+    let props = indexedTableauProps(tableau, currTableauIndex);
     props.classes.push("tableau");
     return e("div", {
       className: props.classes.join(" "), ...props.attributes,
-      ref: (el:any) => {
-	if (el) {
-	  let ws = [...el.children].map(
-	    x => {
-	      if ([...x.classList].includes("children")) {
-		let rowGap =  window.getComputedStyle(x).rowGap;
-		let leftWidth = x.children[0].dataset.calculatedWidth;
-		let rightWidth = x.children[1].dataset.calculatedWidth;
-		console.log(rowGap, leftWidth, rightWidth);
-		return Number(rowGap.slice(0,-2)) + Number(leftWidth) + Number(rightWidth);
-	      } else {
-		return x.clientWidth;
-	      }
-	    }
-	  );
-	  console.log(ws, el.scrollWidth, el.clientWidth);
-	  let m = Math.max(...ws, el.scrollWidth, el.clientWidth);
-	  el.dataset.calculatedWidth = m;
-	  console.log(el, el.scrollWidth, el.clientWidth, m);
-	  el.style.width = `${m}px`;
-	  el.style.height = `${el.scrollHeight}px`;
-	}
-      }
-      // tableauDivRef,
-      // // (e:any) => {
-      // // 	if (e) {
-      // // 	  e.style.height = `${e.scrollHeight}px`;
-      // // 	  // e.style.width = `${e.scrollWidth+1}px`;
-      // // 	}
-      // // }
-    }, children, subTableaus);
+      ref: tableauDivRef,
+    }, children, last);
   }
-}
-
-function TableauComponent(props: TableauProps) {
-  return e(BaseTableauComponent, {
-    ...props,
-    formulaProps: formulaIdx => {
-      let oldProps = props.formulaProps(formulaIdx)
-      if (props.tableau.isFormulaFullyApplied(formulaIdx)) {
-	return {
-	  ...oldProps,
-	  classes: [...oldProps.classes, "fully-applied"]
-	}
-      } else {
-	return oldProps
-      }
-    }
-  });
-}
-
-function ReducingTableauComponent(
-  props: {
-    tableau: Tableau,
-    onClickApplicableFormula: () => void,
-    onClickNonApplicableFormula: () => void,
-  }
-) {
-  let { tableau,
-	onClickApplicableFormula,
-	onClickNonApplicableFormula, } = props;
-  return e(TableauComponent, {
-    tableau: tableau,
-    formulaProps: formulaIdx => {
-      let formulaProps : DOMElementProps =
-	{classes: ["hoverable"], attributes: {}};
-      if (!tableau.isFormulaFullyApplied(formulaIdx) &&
-	reducible(tableau.formulaAt(formulaIdx).formula)) {
-	if (tableau.tableauAt(formulaIdx[0]).isLeaf()) {
-	  formulaProps.attributes = {
-	    onClick: (_) => onClickApplicableFormula(),
-	    // (_) => this.reduceFormula(formulaIdx, formulaIdx[0])
-	  } 
-	} else {
-	  formulaProps.attributes = {
-	    onClick: (_) => onClickNonApplicableFormula(),
-	      // this.transitionToSelecting(formulaIdx)
-	  }
-	}
-      }
-      return formulaProps
-    },
-    tableauProps: _ => ({
-      classes: [],
-      attributes: {},
-    }),
-  });
 }
 
 let nTransitivity = not(implies(implies(v("p"), v("q")),
 				implies(implies(v("q"), v("r")),
 					implies(v("p"), v("r")))));
 
-function randomFormula(n : number, d : number) : Formula {
-  if (d === 0) {
-    let r = Math.floor(Math.random()*(n+2));
-    if (r === 0) {
-      return bot();
-    } else if (r === 1) {
-      return top();
-    } else {
-      return v(`p_${r-2}`);
-    }
-  } else {
-    let r = Math.floor(Math.random()*4);
-    switch (r) {
-      case 0:
-	return and(randomFormula(n, d-1),
-		   randomFormula(n, d-1));
-      case 1:
-	return or(randomFormula(n, d-1),
-		   randomFormula(n, d-1));
-      case 2:
-	return implies(randomFormula(n, d-1),
-		       randomFormula(n, d-1));
-      case 3:
-	return not(randomFormula(n, d-1));
-      default:
-	throw "err";
-    }
-  }
-}
-
 let neg = not(not(not(not(v("p_1")))));
 let p = v("p");
-// let test = randomFormula(5, 4);
-let test = or(p, p);
-test = or(test, test);
-test = and(test, test);
-test = or(test, test);
+// let test = nTransitivity;
+let test = randomFormula(0, 4);
+// let test = or(bot(), bot());
 
-interface AppState {
-  tableau: Tableau
-  state:  {tag: "reducing"} |
-    {tag: "selecting" | "closing", selectedIdx: FormulaIndex}
+// let test = or(p, p);
+// test = or(test, test);
+// test = and(test, test);
+// test = or(test, test);
+
+interface AppProps {
+  initialFormula: Formula,
 }
 
-class App extends React.Component<{}, AppState> {
-  constructor(props: {}) {
+interface AppState {
+  tableau: Tableau,
+  swapTableau: Tableau,
+  isNegated: boolean,
+  state:  {tag: "default"} |
+    {tag: "selectReduce" | "selectClose", selectedIdx: FormulaIndex}
+}
+
+class App extends React.Component<AppProps, AppState> {
+  constructor(props: AppProps) {
     super(props);
-    let t = new Tableau([{formula: test}], []);
-    // t.formulaDatum.push({formula: nTransitivity, selected: false});
     this.state = {
-      tableau: t,
-      state: {tag: "reducing"}
+      tableau: Tableau.initialTableau(props.initialFormula),
+      swapTableau: Tableau.initialTableau(not(props.initialFormula)),
+      isNegated: false,
+      state: {tag: "default"}
     };
   }
-
-  onFormulaClick: (formulaIdx: FormulaIndex) => React.MouseEventHandler =
-    formulaIdx => _ => 
-    this.setState((state, _) => {
-      if (reducible(state.tableau.formulaAt(formulaIdx).formula) &&
-	!state.tableau.isFormulaFullyApplied(formulaIdx)) {
-	if (state.tableau.isLeaf()) {
-	  
-	  return {
-	    ...state,
-	    tableau: state.tableau.reduceFormula(formulaIdx, "")
-	  }
-	} else {
-	  return {
-	    ...state,
-	    state: {tag: "selecting", selectedIdx: formulaIdx}
-	  }
-	}
-      } else {
-	return null;
-      }
-    });
 
   reduceFormula = (formulaIdx: FormulaIndex, tableauIdx: TableauIndex) => {
     this.setState((state, _) => {
       return {
 	tableau: state.tableau.reduceFormula(formulaIdx, tableauIdx),
-	state: {tag: "reducing"}
+	state: {tag: "default"},
       }
     }) 
   }
 
-  transitionToSelecting = (selectedIdx: FormulaIndex) => {
-    this.setState({state: {tag: "selecting", selectedIdx: selectedIdx}});
+  closeBranchWithBot = (idx: FormulaIndex) => {
+    this.setState((state, _) => {
+      return {
+	tableau: state.tableau.closeBranchWithBot(idx),
+	state: {tag: "default"},
+      }
+    })
   }
 
-  transitionToReducing = () => {
-    this.setState({state: {tag: "reducing"}});
+  transitionToSelectReduce = (selectedIdx: FormulaIndex) => {
+    this.setState({state: {tag: "selectReduce", selectedIdx: selectedIdx}});
   }
 
-  renderTableauReducing() {
-    // return e(ReducingTableauComponent, {
-    //   tableau: this.state.tableau,
-    //   onClickApplicableFormula: () => this.
-    // })
-    return e(TableauComponent, {
-      tableau: this.state.tableau,
-      formulaProps: formulaIdx => {
-	let props = {classes: ["hoverable"], attributes: {}}
-	if (!this.state.tableau.isFormulaFullyApplied(formulaIdx) &&
-	  reducible(this.state.tableau.formulaAt(formulaIdx).formula)) {
-	  if (this.state.tableau.tableauAt(formulaIdx[0]).isLeaf()) {
-	    props.attributes = {
-	      onClick: (_:any) => this.reduceFormula(formulaIdx, formulaIdx[0])
-	    } 
-	  } else {
-	    props.attributes = {
-	      onClick: (_:any) => this.transitionToSelecting(formulaIdx)
+  transitionToSelectClose = (selectedIdx: FormulaIndex) => {
+    this.setState({state: {tag: "selectClose", selectedIdx: selectedIdx}});
+  }
+
+  transitionToDefault = () => {
+    this.setState({state: {tag: "default"}});
+  }
+
+  renderTableauDefault = () => e(BaseTableauComponent, {
+    tableau: this.state.tableau,
+    indexedFormulaProps: (currTableau, formula, formulaIdx) => {
+      let props: DOMElementProps = {classes: [], attributes: {}};
+      props.classes.push("hoverable");
+      props.attributes.onContextMenu = () => {
+	if (formula.tag === "bot") {
+	  this.closeBranchWithBot(formulaIdx);
+	} else {
+	  this.transitionToSelectClose(formulaIdx);
+	}
+      }
+
+      let fullyApplied = this.state.tableau.isFormulaFullyApplied(formulaIdx);
+      
+      if (!currTableau.isClosed) {
+	props.attributes.onClick = () => {
+	  if (!fullyApplied && reducible(formula)) {
+	    if (currTableau.isLeaf()) {
+	      this.reduceFormula(formulaIdx, formulaIdx[0]);
+	    } else {
+	    this.transitionToSelectReduce(formulaIdx);
 	    }
 	  }
 	}
-	return props
-      },
-      tableauProps: _ => ({
-	classes: [],
-	attributes: {},
-      }),
-    });
-  }
+      }
+      
+      if (fullyApplied) {
+	props.classes.push("fully-applied");
+      }
+      
+      return props;
+    },
+    indexedTableauProps: (currTableau, _) => {
+      let props: DOMElementProps = {classes: [], attributes: {}};
+      if (currTableau.isClosed) {
+	props.classes.push("closed");
+      } 
+      return props;
+    }
+  })
 
-  renderTableauSelecting(selectedIdx: FormulaIndex) {
-    return e(TableauComponent, {
+  renderTableauSelectReduce = (selectedIdx: FormulaIndex) =>
+    e(BaseTableauComponent, {
       tableau: this.state.tableau,
-      formulaProps: formulaIdx => {
+      indexedFormulaProps: (currTableau, formula, formulaIdx) => {
+	let props: DOMElementProps = {classes: [], attributes: {}};
+	if (eqIdx(selectedIdx, formulaIdx)) {
+	  props.classes.push("selected");
+	}
+	if (this.state.tableau.isFormulaFullyApplied(formulaIdx)) {
+	  props.classes.push("fully-applied");
+	}
+	return props;
+      },
+      indexedTableauProps: (currTableau, tableauIdx) => {
+	let props: DOMElementProps = {classes: [], attributes: {}}; 
+	if (this.state.tableau.getApplicableBranches(selectedIdx)
+	  .some(([_, idxp]) => tableauIdx === idxp)) {
+	  props.classes.push("selectable");
+	  props.attributes.onClick = e => {
+	    this.reduceFormula(selectedIdx, tableauIdx);
+	    e.stopPropagation();
+	  }
+	}
+	return props;
+      }
+    });
+
+  renderTableauSelectClose = (selectedIdx: FormulaIndex) =>
+    e(BaseTableauComponent, {
+      tableau: this.state.tableau,
+      indexedFormulaProps: (currTableau, formula, formulaIdx) => {
+	let props: DOMElementProps = {classes: [], attributes: {}}; 
 	if (eqIdx(formulaIdx, selectedIdx)) {
-	  return {classes: ["selected"], attributes: {}}
-	} else {
-	  return {classes: [], attributes: {}}
+	  props.classes.push("selected");
 	}
+	return props;
       },
-      tableauProps: tableauIdx => {
-	let tableau = this.state.tableau.tableauAt(tableauIdx);
-	
-	if (
-	  this.state.tableau.getApplicableBranches(selectedIdx)
-	    .some(([_, idxp]) => tableauIdx === idxp)
-	) {
-	  return {
-	    classes: ["selectable"],
-	    attributes: {
-	      onClick: e => {
-		this.reduceFormula(selectedIdx, tableauIdx);
-		e.stopPropagation();
-	      },
-	    }
-	  }
-	} else {
-	  return {
-	    classes: [],
-	    attributes: {},
-	  }
-	}
-      },
+      indexedTableauProps: () => {
+	let props: DOMElementProps = {classes: [], attributes: {}};
+	return props;
+      }
     });
-  }
 
   renderTableau() {
     switch (this.state.state.tag) {
-      case "reducing":
-	return this.renderTableauReducing();
-      case "selecting":
-	return this.renderTableauSelecting(this.state.state.selectedIdx);
-      case "closing":
-	throw "err"
+      case "default":
+	return this.renderTableauDefault();
+      case "selectReduce":
+	return this.renderTableauSelectReduce(this.state.state.selectedIdx);
+      case "selectClose":
+	return this.renderTableauSelectClose(this.state.state.selectedIdx);
     }
   }
   
   render() {
-    let props: HTMLAttributes = {}
-    if (this.state.state.tag === "selecting" ||
-      this.state.state.tag === "closing") {
-      props.onClick = _ => {
-	this.transitionToReducing();
-	console.log("hi");
+    let props: HTMLAttributes = {};
+    props.onContextMenu = e => e.preventDefault();
+    props.onKeyDown = e => {
+      console.log("hi");
+      if (e.code === "Space") {
+	this.setState((state, _) => {
+	  return {
+	    tableau: state.swapTableau,
+	    swapTableau: state.tableau,
+	  }
+	});
       }
     }
-    return e("main", props, this.renderTableau());
+    if (this.state.state.tag === "selectReduce" ||
+      this.state.state.tag === "selectClose") {
+      props.onClick = () => this.transitionToDefault();
+    }
+    return e("main", {...props, tabIndex: -1}, this.renderTableau());
   }
 }
 
@@ -770,6 +651,6 @@ reactRoot.id = "react-root";
 document.body.appendChild(reactRoot);
 
 ReactDOM.render(
-  e(App),
+  e(App, {initialFormula: test}),
   reactRoot,
 )

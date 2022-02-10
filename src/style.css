@@ -15,44 +15,50 @@ main {
 }
 
 .tableau {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin: .5em 0 0 0;
-    transition: background-color .15s, height .25s, width .25s;
-    /* min-width: max-content; */
+    /* transition: background-color .15s, height .25s, width .25s; */
+    transition: all .2s;
     flex: 0 0 auto;
-    /* justify-self: center; */
-    /* outline: 1px solid #3c3c3c; */
 }
 
 .children {
-    /* display: flex; */
     display: grid;
+    /* display: flex; */
+    /* flex-direction: row; */
+    justify-content: center;
     grid-auto-flow: column;
     grid-auto-columns: 1fr;
     grid-gap: 3em;
-    /* align-items: stretch; */
-    /* width: 100%; */
-    /* justify-content: center; */
-    /* width: 0px; */
-    /* transition: width .25s; */
+    opacity: 1;
+    
+    transition: all .25s;
+    
     justify-items: center;
     border-top: 1px solid #ddd;
+    padding-top: .5em;
+    margin-top: .5em;
 }
 
-.formula:last-of-type {
-    margin-bottom: .5em;
-    /* background-color:  #f00; */
+.children.hidden {
+    grid-auto-columns: 0px;
+    gap: 0;
+    opacity: 0;
 }
 
-.formula {
+.formula {    
+    transition: all .15s;
+    /* background-color .15s, outline-color .15s; */
+    width: max-content;
+    outline-color: #0c0c0c;
+}
+
+.tableau p {
     margin: 0;
     padding: .5em;
     user-select: none;
-    transition: background-color .15s, outline-color .15s;
-    width: max-content;
-    outline-color: #0c0c0c;
 }
 
 .selectable:hover, .hoverable:hover {
@@ -67,10 +73,14 @@ main {
     background-color: #1f1f1f;		      
 }
 
-/* .no-hover:hover { */
-/*     background-color: initial; */
-/* } */
+.fully-applied {
+    color: #777;
+}
 
-.fully-applied span {
-    color: #888;
+.closed .formula {
+    color: #444;
+}
+
+.closed .children {
+    border-color: #525252;
 }
