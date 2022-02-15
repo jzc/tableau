@@ -84,3 +84,23 @@ main {
 .closed .children {
     border-color: #525252;
 }
+
+.principal {
+    transition: outline .15s;
+    /* padding-left: 1px; */
+    /* padding-right: 1px; */
+    outline: 1px solid transparent;
+    position: relative;
+}
+    
+.hoverable:hover .principal::after {
+    content: "";
+    position: absolute;
+    display: inline-block;
+    height: 1px;
+    width: 100%;
+    top: 100%;
+    left: 0;
+    background-color: gray;
+    /* outline-color: gray; */
+}

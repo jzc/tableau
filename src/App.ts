@@ -22,15 +22,24 @@ interface FormulaProps extends DOMElementProps {
 }
 
 function FormulaComponent(props: FormulaProps) {
-  props.classes.push("formula");
+  if (!props.classes.includes("formula")) {
+    props.classes.push("formula");
+  }
   return e("p", {
     ref: (el) => {
       if (el) {
-	katex.render(prettyString(props.formula), el, {
-	  output: "html",
-	})
+	if (!katex) {
+	  el.textContent = prettyString(props.formula, {unicode:true});	  
+	} else {	  
+	  katex.render(
+	    prettyString(props.formula, {highlightPrincipalOp: true}),
+	    el,
+	    {output: "html", trust: true}
+	  )
+	}
+	
 	let fontSizeStr = window.getComputedStyle(el).fontSize;
-	// let fontSize = Number(fontSizeStr.slice(0, -2));
+	let fontSize = Number(fontSizeStr.slice(0, -2));
 	let rect = el.getBoundingClientRect();
 	let wPx = rect.width;
 	let hPx = rect.height;
@@ -247,6 +256,8 @@ export class App extends React.Component<AppProps, AppState> {
     tableau: this.state.tableau,
     indexedFormulaProps: (currTableau, formula, formulaIdx) => {
       let props: DOMElementProps = {classes: [], attributes: {}};
+
+      // Every formula be right-clickable, closed or not
       props.classes.push("hoverable");
       props.attributes.onContextMenu = () => {
 	if (formula.tag === "bot") {
@@ -256,8 +267,8 @@ export class App extends React.Component<AppProps, AppState> {
 	}
       }
 
+      // Formulae in non-closed tableaus should be left-clickable
       let fullyApplied = this.state.tableau.isFormulaFullyApplied(formulaIdx);
-      
       if (!currTableau.isClosed) {
 	props.attributes.onClick = () => {
 	  if (!fullyApplied && reducible(formula)) {
@@ -269,7 +280,8 @@ export class App extends React.Component<AppProps, AppState> {
 	  }
 	}
       }
-      
+
+      // Style the fully-applied formulae
       if (fullyApplied) {
 	props.classes.push("fully-applied");
       }
@@ -277,6 +289,7 @@ export class App extends React.Component<AppProps, AppState> {
       return props;
     },
     indexedTableauProps: (currTableau, _) => {
+      // Style the closed tableaus
       let props: DOMElementProps = {classes: [], attributes: {}};
       if (currTableau.isClosed) {
 	props.classes.push("closed");
@@ -290,16 +303,20 @@ export class App extends React.Component<AppProps, AppState> {
       tableau: this.state.tableau,
       indexedFormulaProps: (currTableau, formula, formulaIdx) => {
 	let props: DOMElementProps = {classes: [], attributes: {}};
+	// Style the formula we selected
 	if (eqIdx(selectedIdx, formulaIdx)) {
 	  props.classes.push("selected");
 	}
+
+	// Style the fully-applied formulae
 	if (this.state.tableau.isFormulaFullyApplied(formulaIdx)) {
 	  props.classes.push("fully-applied");
 	}
 	return props;
       },
       indexedTableauProps: (currTableau, tableauIdx) => {
-	let props: DOMElementProps = {classes: [], attributes: {}}; 
+	let props: DOMElementProps = {classes: [], attributes: {}};
+	// Style the branches we can apply the selected formula to
 	if (this.state.tableau.getApplicableBranches(selectedIdx)
 	  .some(([_, idxp]) => tableauIdx === idxp)) {
 	  props.classes.push("selectable");
@@ -308,6 +325,12 @@ export class App extends React.Component<AppProps, AppState> {
 	    e.stopPropagation();
 	  }
 	}
+
+	// Style the closed tableau
+	if (currTableau.isClosed) {
+	  props.classes.push("closed");
+	} 
+	
 	return props;
       }
     });
@@ -316,9 +339,25 @@ export class App extends React.Component<AppProps, AppState> {
     e(BaseTableauComponent, {
       tableau: this.state.tableau,
       indexedFormulaProps: (currTableau, formula, formulaIdx) => {
-	let props: DOMElementProps = {classes: [], attributes: {}}; 
+	let props: DOMElementProps = {classes: [], attributes: {}};
+
+	// Style the formula we selected
 	if (eqIdx(formulaIdx, selectedIdx)) {
 	  props.classes.push("selected");
+	}
+
+	// Style the formulae that share a branch with the selected
+	// formula
+	let ancestors = this.state.tableau.getAncestors(selectedIdx[0]);
+	let descendants = this.state.tableau.getDescendants(selectedIdx[0]);
+	let both = [selectedIdx[0], ...ancestors, ...descendants];
+	if (both.includes(formulaIdx[0]) && !eqIdx(formulaIdx, selectedIdx)) {
+	  props.classes.push("selectable");
+	}
+
+	// Style the fully-applied formulae
+	if (this.state.tableau.isFormulaFullyApplied(formulaIdx)) {
+	  props.classes.push("fully-applied");
 	}
 	return props;
       },

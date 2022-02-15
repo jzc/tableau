@@ -1,8 +1,8 @@
 import * as ReactDOM from "react-dom";
 import { createElement as e } from "react";
-
 import "./style.css";
 import "katex/dist/katex.min.css";
+
 import {
   not, implies, and, or, bot, v, randomFormula
 } from "./Formula";
@@ -17,6 +17,7 @@ let test = randomFormula(0, 4);
 let nTransitivity = not(implies(implies(v("p"), v("q")),
 				implies(implies(v("q"), v("r")),
 					implies(v("p"), v("r")))));
+let x = not(not(or(v("p"), not(v("p")))));
 
 // let test = or(p, p);
 // test = or(test, test);

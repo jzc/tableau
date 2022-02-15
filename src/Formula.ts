@@ -50,7 +50,7 @@ export function top(): ConstantFormula {
   return {tag: "top"}
 }
 
-export function parenthesize(
+function parenthesize(
   left: string, parenthesizeLeft: boolean,
   op: string,
   right: string, parenthesizeRight: boolean
@@ -66,33 +66,99 @@ export function parenthesize(
   return `${left} ${op} ${right}`;
 }
 
-export function prettyString(f : Formula) : string {
+function colorbox(s: string, color: null|string) {
+  return color === null ?
+    s :
+    `\\colorbox{${color}}{$${s}$}`
+}
+
+export function prettyString(
+  f : Formula,
+  options?: {highlightPrincipalOp?: boolean, unicode?: boolean}
+) : string {
+  options ??= {}
+  options.highlightPrincipalOp ??= false;
+  options.unicode ??= false;
+  let {highlightPrincipalOp, unicode} = options;
+
+  function withClass(s: string) {
+    if (highlightPrincipalOp) {
+      if (unicode) {
+	return `<span class="principal">${s}</span>`;
+      } else {
+	return `\\mathbin{\\htmlClass{principal}{{${s}}}}`;
+      }
+    } else {
+      return s;
+    }
+  }
+  // let { highlightPrincipalOp=null,
+  // 	unicode=false } = options ?? {};
+  
   let parenthesizeLeft : boolean;
   let parenthesizeRight: boolean;
   switch (f.tag) {
     case "var":
       return f.name;
     case "bot":
-      return "\\bot";
+      return unicode ? "⊥" : "\\bot";
     case "top":
-      return "\\top";
+      return unicode ? "⊤" : "\\top";
     case "not":
-      switch (f.arg.tag) {
+      let neg = unicode ? "¬" : "{\\neg}";
+      let fp : Formula;
+      let op : string;
+      if (highlightPrincipalOp) {
+	switch(f.arg.tag) {
+	  case "not":
+	    options = {...options, highlightPrincipalOp: false};
+	    if (unicode) {
+	      op = `<span class="principal">${neg} ${neg}</span>`;
+	    } else {
+	      op = `\\htmlClass{principal}{${neg} ${neg}}`;
+	    }
+	    fp = f.arg.arg;
+	    break;
+	  case "and":
+	  case "or":
+	  case "implies":
+	    case "var":
+	  case "bot":
+	  case "top":
+	    if (unicode) {
+	      op = `<span class="principal">${neg}</span>`;
+	    } else {
+	      op = `\\htmlClass{principal}{${neg}}`;
+	    }
+	    fp = f.arg
+	    break;
+	  
+	    // op = neg;
+	    // fp = f.arg;	    
+	    // break;
+	}
+      } else {
+	op = neg;
+	fp = f.arg;
+      }
+      switch (fp.tag) {
+	case "not":
 	case "var":
 	case "bot":
-	case "top":
-	case "not":
-	  return `\\neg ${prettyString(f.arg)}`;
+	case "top":	
+	  return `${op} ${prettyString(fp, options)}`;
 	default:
-	  return `\\neg(${prettyString(f.arg)})`;
+	  return `${op}(${prettyString(fp, options)})`;
       }
     case "implies":
+      options = {...options, highlightPrincipalOp: false};
       return parenthesize(
-	prettyString(f.left), f.left.tag === "implies",
-	"\\implies",
-	prettyString(f.right), false
+	prettyString(f.left, options), f.left.tag === "implies",
+	unicode ? "⟹" : withClass("\\implies"),
+	prettyString(f.right, options), false
       );
     case "and":
+      options = {...options, highlightPrincipalOp: false};
       switch(f.left.tag) {
 	case "or":
 	case "implies":
@@ -113,11 +179,12 @@ export function prettyString(f : Formula) : string {
 	  break;
       }
       return parenthesize(
-	prettyString(f.left), parenthesizeLeft,
-	"\\land",
-	prettyString(f.right), parenthesizeRight,
+	prettyString(f.left, options), parenthesizeLeft,
+	unicode ? "∧" : withClass("\\land"),
+	prettyString(f.right, options), parenthesizeRight,
       )
     case "or":
+      options = {...options, highlightPrincipalOp: false};
       switch(f.left.tag) {
 	case "and":
 	case "implies":
@@ -138,9 +205,9 @@ export function prettyString(f : Formula) : string {
 	  break;
       }
       return parenthesize(
-	prettyString(f.left), parenthesizeLeft,
-	"\\lor",
-	prettyString(f.right), parenthesizeRight,
+	prettyString(f.left, options), parenthesizeLeft,
+	unicode ? "∨" : withClass("\\lor"),
+	prettyString(f.right, options), parenthesizeRight,
       )
   }
 }

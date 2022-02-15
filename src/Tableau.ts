@@ -75,7 +75,7 @@ export class Tableau {
     if (tableauIndex === "") {
       return updater(this);
     } else {
-      if (!this.subTableaus) { throw "tableau idnex out of bounds"; }
+      if (!this.subTableaus) { throw "tableau index out of bounds"; }
       if (tableauIndex[0] === "L") {
 	return new Tableau(
 	  this.formulaData,
@@ -190,11 +190,15 @@ export class Tableau {
   }
 
   getAncestors(idx: TableauIndex) : TableauIndex[] {
-    let x = [];
-    for (let i = 0; i < idx.length-1; i++) {
-      x.push(idx.slice(0, i));
-    }
-    return x;
+    // let x = [];
+    // for (let i = 0; i < idx.length-1; i++) {
+    //   x.push(idx.slice(0, i));
+    // }
+    // return x;
+    return Array(idx.length)
+      .fill(0)
+      .map((_, i) => idx.slice(0,i))
+      .reverse()
   }
 
   isLeaf() : boolean {
@@ -247,12 +251,7 @@ export class Tableau {
       }
     });
 
-    let x =
-      Array(tableauIndex.length)
-	.fill(0)
-	.map((_, i) => tableauIndex.slice(0,i))
-	.reverse();
-    for (let idx of x) {
+    for (let idx of thisp.getAncestors(tableauIndex)) {
       let t = thisp.tableauAt(idx);
       let left = (t.subTableaus as any).left as Tableau;
       let right = (t.subTableaus as any).right as Tableau;

@@ -1,10 +1,11 @@
 const path = require("path")
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { merge } = require("webpack-merge");
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
-module.exports = {
+const common = {
   entry: "./src/index.ts",
-  mode: "development",
-  devtool: 'inline-source-map',
   module: {
     rules: [
       {
@@ -14,7 +15,8 @@ module.exports = {
       },
       {
 	test: /\.css$/i,
-	use: ["style-loader", "css-loader"],
+	// use: ["style-loader", "css-loader"],
+	use: [MiniCssExtractPlugin.loader, "css-loader"],
       },
     ],
   },
@@ -25,9 +27,29 @@ module.exports = {
     new HtmlWebpackPlugin({
       title: 'tableau',
     }),
+    new MiniCssExtractPlugin(),
+    // new BundleAnalyzerPlugin(),
   ],
   output: {
-    filename: "main.js",
-    path: path.resolve(__dirname, "dist")
-  }
+    filename: "[name].js",
+    path: path.resolve(__dirname, "dist"),
+    clean: true,
+  },  
+  // optimization: { splitChunks: { chunks: "all" } },
+};
+
+const dev = {
+  name: "dev",
+  mode: "development",
+  devtool: "inline-source-map",
 }
+
+const prod = {
+  name: "prod",
+  mode: "production",
+}
+
+module.exports = [
+  merge(common, dev),
+  merge(common, prod),
+];
