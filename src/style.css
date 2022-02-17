@@ -1,8 +1,15 @@
+@font-face {
+    font-family: "Liberation Mono";
+    src: url("LiberationMono-Regular.ascii.woff2") format("woff2");
+}
+
 html, body, #react-root {
-    background-color: #0c0c0c;
-    font-family: monospace;
+    /* background-color: #0c0c0c; */
+    background-color: hsl(0 0% 5%);
+    font-family: "Liberation Mono";
     font-size: 12pt;
-    color: #ddd;
+    /* color: #ddd; */
+    color: hsl(0 0% 87%);
     height: 100%;
     margin: 0;
 }
@@ -37,9 +44,9 @@ main {
     transition: all .25s;
     
     justify-items: center;
-    border-top: 1px solid #ddd;
-    padding-top: .5em;
-    margin-top: .5em;
+    border-top: .1em solid #ddd;
+    padding-top: .3em;
+    margin-top: .3em;
 }
 
 .children.hidden {
@@ -57,7 +64,7 @@ main {
 
 .tableau p {
     margin: 0;
-    padding: .5em;
+    padding: .35em;
     user-select: none;
 }
 
@@ -66,7 +73,7 @@ main {
 }
 
 .selected {
-   outline: 2px solid #2c2c2c
+    box-shadow: inset 0 0 0 .1em #2c2c2c;
 }
 
 .selectable {
@@ -85,22 +92,37 @@ main {
     border-color: #525252;
 }
 
-.principal {
-    transition: outline .15s;
-    /* padding-left: 1px; */
-    /* padding-right: 1px; */
-    outline: 1px solid transparent;
-    position: relative;
+.hoverable:hover .principal {
+    box-shadow: 0 .05em gray;
 }
-    
-.hoverable:hover .principal::after {
-    content: "";
-    position: absolute;
-    display: inline-block;
-    height: 1px;
-    width: 100%;
-    top: 100%;
+
+.formula-box {
+    padding-top: .125em;
+    padding-bottom: .125em;
+}
+
+.help {
+    transition: all .25s;
+    position: fixed;
+    background-color: inherit;    
+    background-color: #101010;
+    /* margin-left: -35em; */
+    width: 35em;
+    height: 100%;
+    z-index: 1;
+    translate: -100%;
+    padding: 1em;
+}
+
+.help.focused {
+    translate: 0%;
+}
+
+#toggle-help {
+    font-size: 2em;
+    width: 2em;
+    height: 2em;
+    position: fixed;
     left: 0;
-    background-color: gray;
-    /* outline-color: gray; */
+    cursor: pointer;
 }

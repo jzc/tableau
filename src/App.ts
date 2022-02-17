@@ -1,12 +1,21 @@
 import * as katex from "katex";
 import * as React from "react";
 import { createElement as e } from "react";
+
 import {
   Formula, not, prettyString, reducible, 
 } from "./Formula"
 import {
   Tableau, FormulaIndex, TableauIndex, eqIdx
 } from "./Tableau"
+
+import "./style.css";
+import "katex/dist/katex.min.css";
+
+//@ts-ignore
+import help_html from "./help.html";
+
+console.log(help_html);
 
 
 type HTMLAttributes = React.HTMLAttributes<unknown>;
@@ -25,18 +34,22 @@ function FormulaComponent(props: FormulaProps) {
   if (!props.classes.includes("formula")) {
     props.classes.push("formula");
   }
+
+  let html = katex.renderToString(
+    prettyString(props.formula, {highlightPrincipalOp: true}),
+    // el,
+    {output: "html", trust: true}
+  )
+  
   return e("p", {
+    dangerouslySetInnerHTML: {__html: html},
     ref: (el) => {
       if (el) {
-	if (!katex) {
-	  el.textContent = prettyString(props.formula, {unicode:true});	  
-	} else {	  
-	  katex.render(
-	    prettyString(props.formula, {highlightPrincipalOp: true}),
-	    el,
-	    {output: "html", trust: true}
-	  )
-	}
+	// if (!katex) {
+	//   el.textContent = prettyString(props.formula, {unicode:true});	  
+	// } else {	  
+	  
+	// }
 	
 	let fontSizeStr = window.getComputedStyle(el).fontSize;
 	let fontSize = Number(fontSizeStr.slice(0, -2));
@@ -149,12 +162,13 @@ function BaseTableauComponent(props: BaseTableauProps) : null | React.ReactEleme
 	let sizeObj = {width: 0, height: 0}
 	formulaeSizesRef.current.push(sizeObj);
 	let idx: FormulaIndex = [(currTableauIndex as TableauIndex), arrayIdx];
-	return e(FormulaComponent, {
-	  formula: datum.formula,
-	  ...indexedFormulaProps(tableau, datum.formula, idx),
-	  sizeObj: sizeObj,
-	  key: arrayIdx
-	});
+	return e("div", {className: "formula-box", key: arrayIdx},
+		 e(FormulaComponent, {
+		   formula: datum.formula,
+		   ...indexedFormulaProps(tableau, datum.formula, idx),
+		   sizeObj: sizeObj,		   
+		 })
+		);
       }
     );
 
@@ -206,7 +220,7 @@ interface AppProps {
 interface AppState {
   tableau: Tableau,
   swapTableau: Tableau,
-  isNegated: boolean,
+  helpFocused: boolean,
   state:  {tag: "default"} |
     {tag: "selectReduce" | "selectClose", selectedIdx: FormulaIndex}
 }
@@ -217,7 +231,7 @@ export class App extends React.Component<AppProps, AppState> {
     this.state = {
       tableau: Tableau.initialTableau(props.initialFormula),
       swapTableau: Tableau.initialTableau(not(props.initialFormula)),
-      isNegated: false,
+      helpFocused: false,
       state: {tag: "default"}
     };
   }
@@ -377,6 +391,24 @@ export class App extends React.Component<AppProps, AppState> {
 	return this.renderTableauSelectClose(this.state.state.selectedIdx);
     }
   }
+
+  renderHelp() {
+    let classes = ["help"];
+    if (this.state.helpFocused) {
+      classes.push("focused");
+    }
+    return e("section", {
+      className: classes.join(" "),
+      dangerouslySetInnerHTML:{__html: help_html},
+    });
+  }
+
+  renderToggleHelpButton() {
+    return e("div", {
+      id: "toggle-help",
+      onClick: () => this.setState({helpFocused: true}),
+    }, "?");
+  }
   
   render() {
     let props: HTMLAttributes = {};
@@ -392,10 +424,18 @@ export class App extends React.Component<AppProps, AppState> {
 	});
       }
     }
-    if (this.state.state.tag === "selectReduce" ||
-      this.state.state.tag === "selectClose") {
-      props.onClick = () => this.transitionToDefault();
+    props.onClick = () => {
+      if (this.state.state.tag === "selectReduce" ||
+	this.state.state.tag === "selectClose") {
+	this.transitionToDefault();
+      };
+      this.setState({helpFocused: false});
     }
-    return e("main", {...props, tabIndex: -1}, this.renderTableau());
+    
+    return e(React.Fragment, {},
+	     this.renderToggleHelpButton(),
+	     this.renderHelp(),
+	     e("main", {...props, tabIndex: -1}, this.renderTableau()),
+	    );
   }
 }
