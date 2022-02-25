@@ -1,6 +1,7 @@
 import {
   Formula, not, reducible, reduce,
-  isContradictionPair, randomFormula
+  isContradictionPair, randomFormula,
+  prettyString
 } from "./Formula";
 
 function hasContradiction(conjunct: Formula[]) {
@@ -56,11 +57,16 @@ export function isTautology(f: Formula): boolean {
   return true; 
 }
 
-export function randomTautology(n: number, d: number) : Formula {
-  while (true) {
-    let f = randomFormula(n, d);
+export function randomTautology(
+  n: number, d: number, noConstants: boolean,
+  maxIter:number=1000,
+) : Formula | null {
+  for (let i = 0; i < maxIter; i++) {
+    let f = randomFormula(n, d, noConstants);
+    // console.log(prettyString(f, {unicode:true}));
     if (isTautology(f)) {
       return f;
     }
   }
+  return null;
 }

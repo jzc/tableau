@@ -3,16 +3,41 @@
   <strong>TL;DR:</strong>
   This is an interactive app demonstrating <em>tableau proofs</em>
   for propositional logic.
+
+  Roughly, a tableau is a tree of formulae where the formulae occuring
+  lower in the tree are logical consequences of the formulae
+  above. The goal of a tableau proof is to find a contradiction in
+  every branch of the tree; a contradiction is the formula \bot or a
+  pair of formulae of the form p and \not p. 
+  
   <em>Left click</em> formulae to
   simplify them; if there are multiple branches below a
   formula you want to simplify, you will have to left
   click one of the highlighted branches below to the formula
-  to apply the simplification to that branch. You can only
-  simplify a formula in a branch once; if a formula has been
-  simplified in every branch, it will be darkened.  
+  to apply the simplification to that branch.
 
-  In a tableau proof, you continually
-  build a tree of formulae where every formula is either an
-  assumption or is a logical consequence of some formula
-  above it. 
+  If \bot appears in your tableau, right clicking it will
+  close all the branches it appears in. Otherwise, if you
+  right click a formula other than \bot, then the formulae
+  that share a branch with that formula will be highlighted.
+  If you right click one the higlighted formulae such that the pair
+  of formulae you right clicked are of the form \phi and \not \phi,
+  then the branches that contain the formulae you selected be closed.
 </p>
+
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+<!-- <p>hi</p> -->
+

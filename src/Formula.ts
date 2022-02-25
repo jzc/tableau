@@ -257,30 +257,39 @@ export function reduce(f: Formula) : {conjuncts: Formula[]} | {disjuncts: Formul
   }
 }
 
-export function randomFormula(n : number, d : number) : Formula {
+export function randomFormula(n : number, d : number, noConstants: boolean) : Formula {
   if (d === 0) {
-    let r = Math.floor(Math.random()*(n+2));
-    if (r === 0) {
-      return bot();
-    } else if (r === 1) {
-      return top();
+    if (noConstants && n === 0) {
+      throw "invalid arguments";
+    }
+
+    if (noConstants) {
+      let r = Math.floor(Math.random()*n);
+      return v(`p_{${r}}`);
     } else {
-      return v(`p_${r-2}`);
+      let r = Math.floor(Math.random()*(n+2));
+      if (r === 0) {
+	return bot();
+      } else if (r === 1) {
+	return top();
+      } else {
+	return v(`p_{${r-2}}`);
+      }
     }
   } else {
     let r = Math.floor(Math.random()*4);
     switch (r) {
       case 0:
-	return and(randomFormula(n, d-1),
-		   randomFormula(n, d-1));
+	return and(randomFormula(n, d-1, noConstants),
+		   randomFormula(n, d-1, noConstants));
       case 1:
-	return or(randomFormula(n, d-1),
-		  randomFormula(n, d-1));
+	return or(randomFormula(n, d-1, noConstants),
+		  randomFormula(n, d-1, noConstants));
       case 2:
-	return implies(randomFormula(n, d-1),
-		       randomFormula(n, d-1));
+	return implies(randomFormula(n, d-1, noConstants),
+		       randomFormula(n, d-1, noConstants));
       case 3:
-	return not(randomFormula(n, d-1));
+	return not(randomFormula(n, d-1, noConstants));
       default:
 	throw "err";
     }

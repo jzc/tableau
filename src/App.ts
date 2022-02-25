@@ -1,22 +1,22 @@
-import * as katex from "katex";
+import katex from "katex";
 import * as React from "react";
 import { createElement as e } from "react";
 
 import {
-  Formula, not, prettyString, reducible, 
-} from "./Formula"
+  Formula, not, prettyString, reducible, bot
+} from "./Formula";
 import {
   Tableau, FormulaIndex, TableauIndex, eqIdx
-} from "./Tableau"
+} from "./Tableau";
+import {
+  randomTautology
+} from "./Solver";
 
 import "./style.css";
 import "katex/dist/katex.min.css";
 
 //@ts-ignore
 import help_html from "./help.html";
-
-console.log(help_html);
-
 
 type HTMLAttributes = React.HTMLAttributes<unknown>;
 
@@ -30,38 +30,32 @@ interface FormulaProps extends DOMElementProps {
   sizeObj?: {width: number, height: number},
 }
 
+let katexMemo: Map<String, String> = new Map;
+function renderToStringMemo(s: string) : string {
+  if (katexMemo.has(s)) {
+    return katexMemo.get(s) as string;
+  } else {
+    let x = katex.renderToString(s, {
+      output: "html",
+      trust: true,
+      strict: "ignore",
+    });
+    katexMemo.set(s, x);
+    return x;    
+  }
+}
+
 function FormulaComponent(props: FormulaProps) {
   if (!props.classes.includes("formula")) {
     props.classes.push("formula");
   }
 
-  let html = katex.renderToString(
-    prettyString(props.formula, {highlightPrincipalOp: true}),
-    // el,
-    {output: "html", trust: true}
-  )
+  let html = renderToStringMemo(
+    prettyString(props.formula, {highlightPrincipalOp: true})
+  );
   
   return e("p", {
     dangerouslySetInnerHTML: {__html: html},
-    ref: (el) => {
-      if (el) {
-	// if (!katex) {
-	//   el.textContent = prettyString(props.formula, {unicode:true});	  
-	// } else {	  
-	  
-	// }
-	
-	let fontSizeStr = window.getComputedStyle(el).fontSize;
-	let fontSize = Number(fontSizeStr.slice(0, -2));
-	let rect = el.getBoundingClientRect();
-	let wPx = rect.width;
-	let hPx = rect.height;
-	if (props.sizeObj !== undefined) {
-	  props.sizeObj.width = wPx // /fontSize;
-	  props.sizeObj.height = hPx // /fontSize;
-	}
-      }
-    },
     className: props.classes.join(" "),
     ...props.attributes,
   });
@@ -90,38 +84,57 @@ function BaseTableauComponent(props: BaseTableauProps) : null | React.ReactEleme
 	indexedTableauProps,
 	currTableauIndex, } = props;
   currTableauIndex ??= "";
+
+  // reference to the containing div of the tableau we are rendering
+  let thisTableauDiv : HTMLElement; 
+  // references to the containing divs of the formulae in this tableau
+  let formulaeDivs : HTMLElement[] = []; 
+  // reference to the containing div of the left subtableau
+  let leftSize = {width: 0, height: 0}; 
+  // reference to the containing div of the right subtableau
+  let rightSize = {width: 0, height: 0};
+  // reference to the div containing the subtableaus
+  let childrenDiv : HTMLElement | null = null;
   
-  let formulaeSizesRef = React.useRef([] as {width: number, height: number}[]);
-  let leftSizeRef = React.useRef({width: 0, height: 0});
-  let rightSizeRef = React.useRef({width: 0, height: 0});
-  let childrenDivRef = React.useRef<HTMLElement>(null);
-  let tableauDivRef = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
-    let childrenSize = {
-      width: 0,
-      height: Math.max(leftSizeRef.current.height,
-		       rightSizeRef.current.height)
-    }
-    if (childrenDivRef.current !== null) {
-      let style = getComputedStyle(childrenDivRef.current);
+    // Compute the size of children (width and height are 0) if
+    // the tableau has no subtableau
+    
+    let childrenWidth = 0;
+    let childrenHeight = Math.max(leftSize.height,
+				  rightSize.height);
+    let childrenTop = 0;
+    let closedMarkerWidth = 0;
+    let closedMarkedHeight = 0;   
+    if (childrenDiv !== null) {
+      let style = getComputedStyle(childrenDiv);
       // let fontSize = Number(style.fontSize.slice(0, -2));
       // let rowGap = Number(style.rowGap.slice(0, -2));
       let rowGap = 48;
       // let m = Math.max(leftSizeRef.current.width, rightSizeRef.current.width);
-      childrenSize.width =
+      childrenWidth =
 	rowGap // rowGap + 2 * m
-	+ leftSizeRef.current.width
-	+ rightSizeRef.current.width;
-    } 
+	+ leftSize.width
+	+ rightSize.width;
+      childrenTop =
+	[style.marginTop, style.borderTopWidth, style.paddingTop]
+	  .map(s => Number(s.slice(0, -2)))
+	  .reduce((x,y)=>x+y);
+    }
+
+    // Compute the width and height of the tableau we are rendering
     let tableauWidth =
       Math.max(
-	childrenSize.width,
-	...formulaeSizesRef.current.map(({width})=>width)
+	childrenWidth,
+	...formulaeDivs.map(el=>el.getBoundingClientRect().width)
       );
-    let tableauHeight =
-      [childrenSize.height,
-       ...formulaeSizesRef.current.map(({height})=>height)]
-	.reduce((x,y)=>x+y);
+
+    let heights = [
+      childrenTop,
+      childrenHeight,
+      ...formulaeDivs.map(el=>el.getBoundingClientRect().height)
+    ];
+    let tableauHeight = heights.reduce((x,y)=>x+y);
 
     // Propogate the size of the tableau we rendered up
     if (props.sizeObj !== undefined) {
@@ -130,26 +143,21 @@ function BaseTableauComponent(props: BaseTableauProps) : null | React.ReactEleme
     }
 
     // Set the styles
-    if (tableauDivRef.current !== null) {
-      let el = tableauDivRef.current;
-      el.style.width = `${tableauWidth}px`;
-      el.style.height = `${tableauHeight}px`;
+    thisTableauDiv.style.width = `${tableauWidth}px`;
+    thisTableauDiv.style.height = `${tableauHeight}px`;
+    
+    if (childrenDiv !== null) {
+      childrenDiv.classList.remove("hidden");
     }
-    if (childrenDivRef.current !== null) {
-      childrenDivRef.current.classList.remove("hidden");
+    for (let fdiv of formulaeDivs) {
+      fdiv.classList.remove("hidden");
     }
-  });
-  
-  
+  });  
   
   if (!tableau) {
     return null;
   } else {
-    // construct the formula components
-    formulaeSizesRef.current = [];
-    leftSizeRef.current = {width: 0, height: 0};
-    rightSizeRef.current = {width: 0, height: 0};
-    
+    // construct the formula components    
     let children = tableau.formulaData.map(
       (datum, arrayIdx) => {
 	// currTableauIndex shouldn't be undefined as we checked
@@ -159,16 +167,16 @@ function BaseTableauComponent(props: BaseTableauProps) : null | React.ReactEleme
 	// (the other uses of currTableauIndex later in the function
 	// type check fine because they are not within an arrow function...)
 	// https://github.com/microsoft/TypeScript/issues/33319
-	let sizeObj = {width: 0, height: 0}
-	formulaeSizesRef.current.push(sizeObj);
 	let idx: FormulaIndex = [(currTableauIndex as TableauIndex), arrayIdx];
-	return e("div", {className: "formula-box", key: arrayIdx},
-		 e(FormulaComponent, {
-		   formula: datum.formula,
-		   ...indexedFormulaProps(tableau, datum.formula, idx),
-		   sizeObj: sizeObj,		   
-		 })
-		);
+	return (
+	  e("div",
+	    { className: "formula-box hidden",
+	      key: arrayIdx,
+	      ref: (el) => { if (el) formulaeDivs.push(el); } },
+	    e(FormulaComponent,
+	      { formula: datum.formula,
+		...indexedFormulaProps(tableau, datum.formula, idx) }))
+	);
       }
     );
 
@@ -176,25 +184,21 @@ function BaseTableauComponent(props: BaseTableauProps) : null | React.ReactEleme
     let last = null;
     if (tableau.subTableaus) {
       last =
-	// e("div", {className: "childrenBox"},
-	e("div", {
-	  className: "children hidden",
-	  ref: childrenDivRef,
-	},
-	  e(BaseTableauComponent, {
-	    tableau: tableau.subTableaus.left,
-	    indexedFormulaProps: indexedFormulaProps,
-	    indexedTableauProps: indexedTableauProps,
-	    currTableauIndex:  currTableauIndex + "L",
-	    sizeObj: leftSizeRef.current,
-	  }),
-	  e(BaseTableauComponent, {
-	    tableau: tableau.subTableaus.right,
-	    indexedFormulaProps: indexedFormulaProps,
-	    indexedTableauProps: indexedTableauProps,
-	    currTableauIndex: currTableauIndex + "R",
-	    sizeObj: rightSizeRef.current,
-	  }));
+	e("div",
+	  { className: "children hidden",
+	    ref: (el) => { if (el) childrenDiv = el; } },
+	  e(BaseTableauComponent,
+	    { tableau: tableau.subTableaus.left,
+	      indexedFormulaProps: indexedFormulaProps,
+	      indexedTableauProps: indexedTableauProps,
+	      currTableauIndex:  currTableauIndex + "L",
+	      sizeObj: leftSize }),
+	  e(BaseTableauComponent,
+	    { tableau: tableau.subTableaus.right,
+	      indexedFormulaProps: indexedFormulaProps,
+	      indexedTableauProps: indexedTableauProps,
+	      currTableauIndex: currTableauIndex + "R",
+	      sizeObj: rightSize}));
     } else if (tableau.isClosed) {
       last = e("p", {}, "X");
     }
@@ -202,10 +206,14 @@ function BaseTableauComponent(props: BaseTableauProps) : null | React.ReactEleme
     // construct the actual tableau    
     let props = indexedTableauProps(tableau, currTableauIndex);
     props.classes.push("tableau");
-    return e("div", {
-      className: props.classes.join(" "), ...props.attributes,
-      ref: tableauDivRef,
-    }, children, last);
+    return (
+      e("div",
+	{ className: props.classes.join(" "),
+	  ref: (el : HTMLElement | null) => { if (el) thisTableauDiv = el; },
+	  ...props.attributes },
+	children,
+	last)
+    );
   }
 }
 
@@ -367,12 +375,16 @@ export class App extends React.Component<AppProps, AppState> {
 	let both = [selectedIdx[0], ...ancestors, ...descendants];
 	if (both.includes(formulaIdx[0]) && !eqIdx(formulaIdx, selectedIdx)) {
 	  props.classes.push("selectable");
+	  props.classes.push("hoverable");
 	}
 
 	// Style the fully-applied formulae
 	if (this.state.tableau.isFormulaFullyApplied(formulaIdx)) {
 	  props.classes.push("fully-applied");
 	}
+	// props.onContextMenu = () => {
+	  
+	// };
 	return props;
       },
       indexedTableauProps: () => {
@@ -403,11 +415,24 @@ export class App extends React.Component<AppProps, AppState> {
     });
   }
 
-  renderToggleHelpButton() {
-    return e("div", {
-      id: "toggle-help",
-      onClick: () => this.setState({helpFocused: true}),
-    }, "?");
+  renderControls() {
+    return (
+      e("div",
+	{ id: "controls" },
+	e("ul", {},
+	  e("li",
+	    { onClick: () => this.setState({helpFocused: true})},
+	    "info"),
+	  e("li",
+	    { onClick: () =>
+	      this.setState(
+		{ tableau: Tableau.initialTableau(
+		  not(randomTautology(5 , 4, true, 100) ?? bot()))})},
+	    "new formula"),
+	  e("li",
+	    {},
+	    "auto solve")))
+    );
   }
   
   render() {
@@ -432,10 +457,15 @@ export class App extends React.Component<AppProps, AppState> {
       this.setState({helpFocused: false});
     }
     
-    return e(React.Fragment, {},
-	     this.renderToggleHelpButton(),
-	     this.renderHelp(),
-	     e("main", {...props, tabIndex: -1}, this.renderTableau()),
-	    );
+    return (
+      e(React.Fragment, {},
+	this.renderControls(),
+	this.renderHelp(),
+	e("main",
+	  {...props,
+	   className: this.state.helpFocused ? "unfocused" : "",
+	   tabIndex: -1},
+	  this.renderTableau()))
+    );
   }
 }
