@@ -20,7 +20,7 @@ const common = {
       },
       {
 	test: /\.html$/i,
-	loader: "html-loader",
+	use: ["html-loader", path.resolve("katex-loader.js")],
       }
     ],
   },

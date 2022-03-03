@@ -15,20 +15,6 @@ import {
 import "./style.css";
 import "katex/dist/katex.min.css";
 
-//@ts-ignore
-import help_html from "./help.html";
-
-type HTMLAttributes = React.HTMLAttributes<unknown>;
-
-interface DOMElementProps {
-  classes: string[],
-  attributes: HTMLAttributes,
-}
-
-interface FormulaProps extends DOMElementProps {
-  formula: Formula,
-  sizeObj?: {width: number, height: number},
-}
 
 let katexMemo: Map<String, String> = new Map;
 function renderToStringMemo(s: string) : string {
@@ -45,7 +31,31 @@ function renderToStringMemo(s: string) : string {
   }
 }
 
+//@ts-ignore
+import help_html from "./help.html";
+
+type HTMLAttributes = React.HTMLAttributes<unknown>;
+
+interface DOMElementProps {
+  classes: string[],
+  attributes: HTMLAttributes,
+}
+
+interface FormulaProps extends DOMElementProps {
+  formula: Formula,
+  sizeObj?: {width: number, height: number},
+}
+
 function FormulaComponent(props: FormulaProps) {
+  // if (!props.classes.includes("formula")) {
+  //   props.classes.push("formula");
+  // }
+
+  // return e("k-math",
+  // 	   {className: props.classes.join(" "), ...props.attributes},
+  // 	   prettyString(props.formula, {highlightPrincipalOp: true}));
+	   
+  
   if (!props.classes.includes("formula")) {
     props.classes.push("formula");
   }
@@ -229,7 +239,7 @@ interface AppState {
   tableau: Tableau,
   swapTableau: Tableau,
   helpFocused: boolean,
-  state:  {tag: "default"} |
+  state: {tag: "default"} |
     {tag: "selectReduce" | "selectClose", selectedIdx: FormulaIndex}
 }
 
@@ -405,11 +415,12 @@ export class App extends React.Component<AppProps, AppState> {
   }
 
   renderHelp() {
-    let classes = ["help"];
+    let classes = [];
     if (this.state.helpFocused) {
       classes.push("focused");
     }
     return e("section", {
+      id: "help",
       className: classes.join(" "),
       dangerouslySetInnerHTML:{__html: help_html},
     });
@@ -417,7 +428,7 @@ export class App extends React.Component<AppProps, AppState> {
 
   renderControls() {
     return (
-      e("div",
+      e("nav",
 	{ id: "controls" },
 	e("ul", {},
 	  e("li",
@@ -435,37 +446,27 @@ export class App extends React.Component<AppProps, AppState> {
     );
   }
   
-  render() {
-    let props: HTMLAttributes = {};
-    props.onContextMenu = e => e.preventDefault();
-    props.onKeyDown = e => {
-      console.log("hi");
-      if (e.code === "Space") {
-	this.setState((state, _) => {
-	  return {
-	    tableau: state.swapTableau,
-	    swapTableau: state.tableau,
-	  }
-	});
-      }
-    }
-    props.onClick = () => {
-      if (this.state.state.tag === "selectReduce" ||
-	this.state.state.tag === "selectClose") {
-	this.transitionToDefault();
-      };
-      this.setState({helpFocused: false});
-    }
-    
+  render() {    
     return (
       e(React.Fragment, {},
-	this.renderControls(),
 	this.renderHelp(),
-	e("main",
-	  {...props,
+	e("div",
+	  {id: "below-help",
 	   className: this.state.helpFocused ? "unfocused" : "",
-	   tabIndex: -1},
-	  this.renderTableau()))
+	   onClick: this.state.helpFocused ?
+	    () => {this.setState({helpFocused: false})} :
+	    null},
+	  this.renderControls(),
+	  e("main",
+	    {onContextMenu: (e:any) => e.preventDefault(),
+	     onClick: () => {
+	       if (this.state.state.tag === "selectReduce" ||
+		 this.state.state.tag === "selectClose") {
+		 this.transitionToDefault();
+	       }
+	     },
+	     tabIndex: -1},
+	    this.renderTableau())))
     );
   }
 }
