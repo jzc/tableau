@@ -257,43 +257,106 @@ export function reduce(f: Formula) : {conjuncts: Formula[]} | {disjuncts: Formul
   }
 }
 
-export function randomFormula(n : number, d : number, noConstants: boolean) : Formula {
+function _randomFormula(
+  n : number, d : number, noConstants: boolean
+): { generatedVars: number[],
+     formulaThunk: (transformer: (i:number) => string) => Formula}
+{
   if (d === 0) {
     if (noConstants && n === 0) {
       throw "invalid arguments";
     }
 
     if (noConstants) {
-      let r = Math.floor(Math.random()*n);
-      return v(`p_{${r}}`);
+      let r = Math.floor(Math.random()*n);      
+      return {
+	generatedVars: [r],
+	formulaThunk: (transformer) => v(transformer(r))
+      };
     } else {
       let r = Math.floor(Math.random()*(n+2));
       if (r === 0) {
-	return bot();
+	return {generatedVars: [], formulaThunk: () => bot()};
       } else if (r === 1) {
-	return top();
+	return {generatedVars: [], formulaThunk: () => top()};
       } else {
-	return v(`p_{${r-2}}`);
+	return {
+	  generatedVars: [r-2],
+	  formulaThunk: (transformer) => v(transformer(r-2)),
+	}
       }
     }
   } else {
     let r = Math.floor(Math.random()*4);
     switch (r) {
       case 0:
-	return and(randomFormula(n, d-1, noConstants),
-		   randomFormula(n, d-1, noConstants));
+	{
+	  let { generatedVars: gv1, formulaThunk: th1 } =
+	    _randomFormula(n, d-1, noConstants);
+	  let { generatedVars: gv2, formulaThunk: th2 } =
+	    _randomFormula(n, d-1, noConstants);
+	  return {
+	    generatedVars: gv1.concat(gv2),
+	    formulaThunk: (transformer) => and(th1(transformer), th2(transformer)),
+	  }
+	}
       case 1:
-	return or(randomFormula(n, d-1, noConstants),
-		  randomFormula(n, d-1, noConstants));
+	{
+	  let { generatedVars: gv1, formulaThunk: th1 } =
+	    _randomFormula(n, d-1, noConstants);
+	  let { generatedVars: gv2, formulaThunk: th2 } =
+	    _randomFormula(n, d-1, noConstants);
+	  return {
+	    generatedVars: gv1.concat(gv2),
+	    formulaThunk: (transformer) => or(th1(transformer), th2(transformer)),
+	  }
+	}
       case 2:
-	return implies(randomFormula(n, d-1, noConstants),
-		       randomFormula(n, d-1, noConstants));
+	{
+	  let { generatedVars: gv1, formulaThunk: th1 } =
+	    _randomFormula(n, d-1, noConstants);
+	  let { generatedVars: gv2, formulaThunk: th2 } =
+	    _randomFormula(n, d-1, noConstants);
+	  return {
+	    generatedVars: gv1.concat(gv2),
+	    formulaThunk: (transformer) => implies(th1(transformer), th2(transformer)),
+	  }
+	}
       case 3:
-	return not(randomFormula(n, d-1, noConstants));
+	{
+	  let { generatedVars: gv1, formulaThunk: th1 } =
+	    _randomFormula(n, d-1, noConstants);
+	  return {
+	    generatedVars: gv1,
+	    formulaThunk: (transformer) => not(th1(transformer)),
+	  }
+	}
       default:
 	throw "err";
     }
   }
+}
+
+
+function* iota(x: number, y: number) {
+  let c = x;
+  while (c < y) {
+    yield c++;
+  }
+}
+
+let alpha = [...iota("a".charCodeAt(0), "z".charCodeAt(0))]
+	      .map(x=>String.fromCharCode(x));
+let pidx = alpha.indexOf("p");
+let vars = alpha.slice(pidx).concat(alpha.slice(0, pidx));
+
+export function randomFormula(n : number, d : number, noConstants: boolean) {
+  let {generatedVars, formulaThunk} = _randomFormula(n, d, noConstants);
+  let min = Math.min(...generatedVars);
+  return formulaThunk(x => {    
+    let y = x - min;
+    return vars[y % vars.length] + "'".repeat(Math.floor(y/vars.length));
+  });
 }
 
 export function eqFormula(f1: Formula, f2: Formula) : boolean {

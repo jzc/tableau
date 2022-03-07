@@ -20,6 +20,8 @@ main {
     /* align-items: center; */
     /* justify-content: center; */
     height: 100%;
+    overflow: auto;
+    padding: 1em;
 }
 main > * {
     margin: auto;
@@ -96,7 +98,7 @@ main > * {
     border-color: #525252;
 }
 
-.hoverable:hover .principal, .selected .principal {
+.formula.hoverable:hover .principal, .selected .principal {
     box-shadow: 0 .05em gray;
 }
 
@@ -109,31 +111,86 @@ main > * {
     opacity: 0;
 }
 
-#help {
+#info {
     transition: all .25s;
     position: fixed;
     background-color: inherit;    
     background-color: #101010;
-    /* margin-left: -35em; */
-    /* width: min(35em, 95%); */
-    width: 35em;
-    max-width: 95%;
+    /* width: 35em; */
+    /* max-width: 95%;     */
+    width: 100%;
     height: 100%;
-    z-index: 1;
-    transform: translate(-100%);
+    z-index: -1;
+    opacity: 0;
+    /* transform: translate(-100%); */
     padding: 1em;
-    border-right: 1px solid hsl(0 0% 15%);
+    /* border-right: 1px solid hsl(0 0% 15%); */
     overflow: auto;
     box-sizing: border-box;
     line-height: 1.3;
+    display: flex
 }
 
-#help.focused {
-    transform: translate(0%);
+#info.focused {
+    opacity: .75;
+    z-index: 1;
 }
 
-#help .katex {
+#info .katex {
     font-size: 1.1em;
+}
+
+#info > div {
+    max-width: 45em;
+    margin: 0 auto;
+}
+
+#info header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    justify-content: space-between;    
+}
+
+#info header h1 {
+    margin: 0;
+    align-self: center;
+}
+
+#info-close {
+    cursor: pointer;
+    justify-self: end;
+    align-self: center;
+    display: flex;
+    top: 0;
+    right: 0;
+    padding: .75rem;
+    user-select: none;
+    color: white;
+    background-color: hsl(0 0% 15%);
+}
+
+.closed-marker {
+    width: 1em;
+}
+.closed-marker line {
+    stroke-width: 15;
+}
+
+#info-close svg {
+    width: 1.25em;
+}
+
+#info-close line {
+    stroke-width: 15;
+}
+
+#info-close:hover {
+    background-color: hsl(0 0% 85%);
+}
+
+#info-close:hover line {
+    stroke: black;
+    stroke-width: 15;
 }
 
 
@@ -142,12 +199,16 @@ main > * {
     /* justify-content: center; */
     padding-top: 10px;
     padding-bottom: 10px;
+    padding: .5em;
     background-color: inherit;
     z-index: 1;
     position: sticky;
     top: 0;
-    left: 0;	
+    left: 0;
+    box-sizing: border-box;
     width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 #controls ul {
@@ -170,7 +231,7 @@ main > * {
 #controls li {
     cursor: pointer;
     text-align: center;
-    transition: box-shadow .05s linear;
+    transition: box-shadow .1s linear;
     user-select: none;
     box-shadow: 0 0px white;
     height: max-content;
@@ -206,17 +267,16 @@ main > * {
     pointer-events: none;
 }
 
-#below-help {
+#below-info {
     height: 100%;
     transition: filter .2s linear;
     display: flex;
     flex-direction: column;
-    overflow: auto;
 }
 
-below-help > #controls {
+below-info > #controls {
     flex: 0 0 auto;
 }
-below-help > main {
+below-info > main {
     flex: 1 0 auto;
 }

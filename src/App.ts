@@ -3,7 +3,8 @@ import * as React from "react";
 import { createElement as e } from "react";
 
 import {
-  Formula, not, prettyString, reducible, bot
+  Formula, not, prettyString, reducible, bot,
+  isContradictionPair
 } from "./Formula";
 import {
   Tableau, FormulaIndex, TableauIndex, eqIdx
@@ -14,7 +15,10 @@ import {
 
 import "./style.css";
 import "katex/dist/katex.min.css";
-
+//@ts-ignore
+import info_html from "./info.html";
+//@ts-ignore
+import x_svg from "html-loader!./x.svg";
 
 let katexMemo: Map<String, String> = new Map;
 function renderToStringMemo(s: string) : string {
@@ -31,8 +35,7 @@ function renderToStringMemo(s: string) : string {
   }
 }
 
-//@ts-ignore
-import help_html from "./help.html";
+
 
 type HTMLAttributes = React.HTMLAttributes<unknown>;
 
@@ -46,16 +49,7 @@ interface FormulaProps extends DOMElementProps {
   sizeObj?: {width: number, height: number},
 }
 
-function FormulaComponent(props: FormulaProps) {
-  // if (!props.classes.includes("formula")) {
-  //   props.classes.push("formula");
-  // }
-
-  // return e("k-math",
-  // 	   {className: props.classes.join(" "), ...props.attributes},
-  // 	   prettyString(props.formula, {highlightPrincipalOp: true}));
-	   
-  
+function FormulaComponent(props: FormulaProps) {  
   if (!props.classes.includes("formula")) {
     props.classes.push("formula");
   }
@@ -210,7 +204,9 @@ function BaseTableauComponent(props: BaseTableauProps) : null | React.ReactEleme
 	      currTableauIndex: currTableauIndex + "R",
 	      sizeObj: rightSize}));
     } else if (tableau.isClosed) {
-      last = e("p", {}, "X");
+      last = e("div",
+	       { className: "formula-box closed-marker",
+		 dangerouslySetInnerHTML: {__html: x_svg} });
     }
 
     // construct the actual tableau    
@@ -238,7 +234,7 @@ interface AppProps {
 interface AppState {
   tableau: Tableau,
   swapTableau: Tableau,
-  helpFocused: boolean,
+  infoFocused: boolean,
   state: {tag: "default"} |
     {tag: "selectReduce" | "selectClose", selectedIdx: FormulaIndex}
 }
@@ -249,7 +245,7 @@ export class App extends React.Component<AppProps, AppState> {
     this.state = {
       tableau: Tableau.initialTableau(props.initialFormula),
       swapTableau: Tableau.initialTableau(not(props.initialFormula)),
-      helpFocused: false,
+      infoFocused: false,
       state: {tag: "default"}
     };
   }
@@ -270,6 +266,23 @@ export class App extends React.Component<AppProps, AppState> {
 	state: {tag: "default"},
       }
     })
+  }
+
+  tryCloseBranch = (idx1: FormulaIndex, idx2: FormulaIndex) => {
+    this.setState((state, _) => {      
+      if (isContradictionPair(state.tableau.formulaAt(idx1).formula,
+			      state.tableau.formulaAt(idx2).formula)) {
+	return {
+	  tableau: state.tableau.closeBranchWithContradiction(idx1, idx2),
+	  state: {tag: "default"},
+	}
+      } else {
+	return {
+	  tableau: state.tableau,
+	  state: {tag: "default"},
+	}
+      }
+    });
   }
 
   transitionToSelectReduce = (selectedIdx: FormulaIndex) => {
@@ -352,6 +365,7 @@ export class App extends React.Component<AppProps, AppState> {
 	if (this.state.tableau.getApplicableBranches(selectedIdx)
 	  .some(([_, idxp]) => tableauIdx === idxp)) {
 	  props.classes.push("selectable");
+	  props.classes.push("hoverable");
 	  props.attributes.onClick = e => {
 	    this.reduceFormula(selectedIdx, tableauIdx);
 	    e.stopPropagation();
@@ -386,6 +400,11 @@ export class App extends React.Component<AppProps, AppState> {
 	if (both.includes(formulaIdx[0]) && !eqIdx(formulaIdx, selectedIdx)) {
 	  props.classes.push("selectable");
 	  props.classes.push("hoverable");
+	  props.attributes.onContextMenu = () => {
+	    this.tryCloseBranch(selectedIdx, formulaIdx);
+	  };
+	} else if (currTableau.isClosed) {
+	  props.classes.push("closed");
 	}
 
 	// Style the fully-applied formulae
@@ -393,8 +412,7 @@ export class App extends React.Component<AppProps, AppState> {
 	  props.classes.push("fully-applied");
 	}
 	// props.onContextMenu = () => {
-	  
-	// };
+	  	// };
 	return props;
       },
       indexedTableauProps: () => {
@@ -414,16 +432,26 @@ export class App extends React.Component<AppProps, AppState> {
     }
   }
 
-  renderHelp() {
+  renderInfo() {
     let classes = [];
-    if (this.state.helpFocused) {
+    if (this.state.infoFocused) {
       classes.push("focused");
     }
-    return e("section", {
-      id: "help",
-      className: classes.join(" "),
-      dangerouslySetInnerHTML:{__html: help_html},
-    });
+    return (
+      e("section",
+	{ id: "info",
+	  className: classes.join(" ")},
+	e("div", {},	  
+	  e("header", {},
+	    e("h1", {}, "tableau"),
+	    e("div",
+	      {id: "info-close",
+	       onClick: () => this.setState({infoFocused: false}),
+	       dangerouslySetInnerHTML: {__html: x_svg}})),
+	  e("div",
+	    { className: "content", 
+	      dangerouslySetInnerHTML: {__html: info_html} })))
+    );
   }
 
   renderControls() {
@@ -432,7 +460,7 @@ export class App extends React.Component<AppProps, AppState> {
 	{ id: "controls" },
 	e("ul", {},
 	  e("li",
-	    { onClick: () => this.setState({helpFocused: true})},
+	    { onClick: () => this.setState({infoFocused: true})},
 	    "info"),
 	  e("li",
 	    { onClick: () =>
@@ -440,21 +468,22 @@ export class App extends React.Component<AppProps, AppState> {
 		{ tableau: Tableau.initialTableau(
 		  not(randomTautology(5 , 4, true, 100) ?? bot()))})},
 	    "new formula"),
-	  e("li",
-	    {},
-	    "auto solve")))
+	  // e("li",
+	  //   {},
+	  //   "auto solve")
+	 ))
     );
   }
   
   render() {    
     return (
       e(React.Fragment, {},
-	this.renderHelp(),
+	this.renderInfo(),
 	e("div",
-	  {id: "below-help",
-	   className: this.state.helpFocused ? "unfocused" : "",
-	   onClick: this.state.helpFocused ?
-	    () => {this.setState({helpFocused: false})} :
+	  {id: "below-info",
+	   className: this.state.infoFocused ? "unfocused" : "",
+	   onClick: this.state.infoFocused ?
+	    () => {this.setState({infoFocused: false})} :
 	    null},
 	  this.renderControls(),
 	  e("main",
@@ -465,7 +494,8 @@ export class App extends React.Component<AppProps, AppState> {
 		 this.transitionToDefault();
 	       }
 	     },
-	     tabIndex: -1},
+	     // tabIndex: -1
+	    },
 	    this.renderTableau())))
     );
   }

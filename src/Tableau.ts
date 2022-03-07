@@ -224,7 +224,7 @@ export class Tableau {
     let f1 = this.formulaAt(fIdx1).formula;
     let f2 = this.formulaAt(fIdx2).formula;
     if (!isContradictionPair(f1, f2)) { throw "not a contradiction"; }
-    return this.closeBranch(fIdx2[0]);
+    return this.closeBranch(fIdx1[0]);
   }
 
   private closeBranch(tableauIndex: TableauIndex) : Tableau {

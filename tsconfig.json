@@ -4,6 +4,5 @@
     "sourceMap": true,
     "strict": true,
     "target": "es6",
-    "lib": ["es2021.string", "dom"]
   }
 }
